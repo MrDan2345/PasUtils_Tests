@@ -6,25 +6,17 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, ExtCtrls,
-  CommonUtils, MediaUtils, gl, Windows;
+  CommonUtils, MediaUtils, Setup, PasOpenGL;
 
 type
-  TForm1 = class(TForm)
-    Timer1: TTimer;
-    procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
-    procedure FormCreate(Sender: TObject);
-    procedure Timer1Timer(Sender: TObject);
-  private
-    var DeviceContext: HDC;
-    var RenderingContext: HGLRC;
+  TForm1 = class(TCommonForm)
+  public
     var Scene: TUSceneData;
     var StartTime: UInt64;
     var CurTime: UInt64;
-    procedure InitializeGL;
-    procedure FinalizeGL;
-    procedure InitializeData;
-    procedure FinalizeData;
-    procedure Render;
+    procedure Initialize; override;
+    procedure Finalize; override;
+    procedure Tick; override;
   end;
 
 var
@@ -34,62 +26,7 @@ implementation
 
 {$R *.lfm}
 
-procedure TForm1.FormCreate(Sender: TObject);
-begin
-  StartTime := GetTickCount64;
-  InitializeGL;
-  InitializeData;
-  Timer1.Enabled := True;
-end;
-
-procedure TForm1.FormClose(Sender: TObject; var CloseAction: TCloseAction);
-begin
-  Timer1.Enabled := False;
-  FinalizeData;
-  FinalizeGL;
-end;
-
-procedure TForm1.Timer1Timer(Sender: TObject);
-  var WinRect: TRect;
-begin
-  CurTime := GetTickCount64 - StartTime;
-  WinRect := ClientRect;
-  glViewport(0, 0, WinRect.Right - WinRect.Left, WinRect.Bottom - WinRect.Top);
-  glClearColor(0.5, 0.5, 0.5, 1);
-  glClearDepth(1);
-  glClear(GL_COLOR_BUFFER_BIT);
-  Render;
-  SwapBuffers(DeviceContext);
-end;
-
-procedure TForm1.InitializeGL;
-  var pfd: TPixelFormatDescriptor;
-  var pf: Int32;
-begin
-  DeviceContext := GetDC(Handle);
-  UClear(pfd, SizeOf(pfd));
-  pfd.nSize := SizeOf(pfd);
-  pfd.nVersion := 1;
-  pfd.dwFlags := PFD_DRAW_TO_WINDOW or PFD_SUPPORT_OPENGL or PFD_DOUBLEBUFFER;
-  pfd.iPixelType := PFD_TYPE_RGBA;
-  pfd.cColorBits := 32;
-  pfd.cAlphaBits := 8;
-  pfd.cDepthBits := 16;
-  pfd.iLayerType := PFD_MAIN_PLANE;
-  pf := ChoosePixelFormat(DeviceContext, @pfd);
-  SetPixelFormat(DeviceContext, pf, @pfd);
-  RenderingContext := wglCreateContext(DeviceContext);
-  wglMakeCurrent(DeviceContext, RenderingContext);
-end;
-
-procedure TForm1.FinalizeGL;
-begin
-  wglMakeCurrent(DeviceContext, RenderingContext);
-  wglDeleteContext(RenderingContext);
-  ReleaseDC(Handle, DeviceContext);
-end;
-
-procedure TForm1.InitializeData;
+procedure TForm1.Initialize;
   procedure PropagateTransforms(const Node: TUSceneData.TNodeInterface);
     var i: Int32;
   begin
@@ -109,16 +46,16 @@ begin
   WriteLn(Length(Scene.MeshList));
 end;
 
-procedure TForm1.FinalizeData;
+procedure TForm1.Finalize;
 begin
   Scene.Free;
 end;
 
-procedure TForm1.Render;
+procedure TForm1.Tick;
   procedure SetupTransforms(const Xf: TUMat);
     var W, V, P, WV: TUMat;
   begin
-    W := Xf * TUMat.RotationZ(((GetTickCount mod 6000) / 6000) * 2 * Pi);
+    W := Xf * TUMat.RotationZ(((GetTickCount64 mod 6000) / 6000) * 2 * Pi);
     V := TUMat.View(TUVec3.Make(0, 8, 0), TUVec3.Make(0, 0, 0), TUVec3.Make(0, 0, 1));
     P := TUMat.Proj(Pi / 4, 1, 1, 100);
     WV := W * V;
@@ -248,6 +185,8 @@ procedure TForm1.Render;
     end;
   end;
 begin
+  glClearColor(0.2, 0.2, 0.2, 1);
+  glClear(GL_COLOR_BUFFER_BIT);
   //UpdateAnimations(TUFloat(CurTime) * 0.001);
   //PropagateTransforms(Scene.RootNode);
   //glEnable(GL_TEXTURE_2D);
