@@ -1,6 +1,8 @@
 unit Unit1;
 
 {$mode objfpc}{$H+}
+{$modeswitch advancedrecords}
+{$modeswitch typehelpers}
 
 interface
 
@@ -8,16 +10,23 @@ uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, ExtCtrls,
   CommonUtils, MediaUtils, Setup, PasOpenGL;
 
-type
-  TForm1 = class(TCommonForm)
-  public
-    var Scene: TUSceneData;
-    var StartTime: UInt64;
-    var CurTime: UInt64;
-    procedure Initialize; override;
-    procedure Finalize; override;
-    procedure Tick; override;
-  end;
+type TCamera = record
+  P: TUMat;
+  V: TUMat;
+end;
+
+type TForm1 = class(TCommonForm)
+public
+  var Scene: TUSceneData;
+  var StartTime: UInt64;
+  var CurTime: UInt64;
+  var Camera: TCamera;
+  procedure Initialize; override;
+  procedure Finalize; override;
+  procedure Tick; override;
+  procedure DrawAxis;
+  procedure DrawMesh;
+end;
 
 var
   Form1: TForm1;
@@ -32,16 +41,18 @@ procedure TForm1.Initialize;
   begin
     if Assigned(Node.Parent) then
     begin
-      Node.Transform := Node.Parent.Transform * Node.Transform;
+      Node.Transform := Node.Transform * Node.Parent.Transform;
     end;
+    Node.UpdateTransform := False;
     for i := 0 to High(Node.Children) do
     begin
       PropagateTransforms(Node.Children[i]);
     end;
   end;
 begin
+  StartTime := GetTickCount64;
   Scene := TUSceneDataDAE.Create();
-  Scene.Load('Assets/skin.dae');
+  Scene.Load('Assets/boxes3.dae');
   PropagateTransforms(Scene.RootNode);
   WriteLn(Length(Scene.MeshList));
 end;
@@ -52,12 +63,45 @@ begin
 end;
 
 procedure TForm1.Tick;
+begin
+  CurTime := GetTickCount64 - StartTime;
+  Camera.V := TUMat.View(TUVec3.Make(10, 10, 10), TUVec3.Make(0, 0, 0), TUVec3.Make(0, 0, 1));
+  Camera.P := TUMat.Proj(Pi / 4, 1, 1, 100);
+  glClearColor(0.2, 0.2, 0.2, 1);
+  glClearDepth(1);
+  glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT);
+  DrawAxis;
+  DrawMesh;
+end;
+
+procedure TForm1.DrawAxis;
+  var WV: TUMat;
+  const AxisSize = 1000;
+begin
+  WV := Camera.V;
+  glMatrixMode(GL_MODELVIEW);
+  glLoadMatrixf(@WV);
+  glBegin(GL_LINES);
+    glColor3f(1, 0, 0);
+    glVertex3f(-AxisSize, 0, 0);
+    glVertex3f(AxisSize, 0, 0);
+    glColor3f(0, 1, 0);
+    glVertex3f(0, -AxisSize, 0);
+    glVertex3f(0, AxisSize, 0);
+    glColor3f(0, 0, 1);
+    glVertex3f(0, 0, -AxisSize);
+    glVertex3f(0, 0, AxisSize);
+    glColor3f(1, 1, 1);
+  glEnd;
+end;
+
+procedure TForm1.DrawMesh;
   procedure SetupTransforms(const Xf: TUMat);
     var W, V, P, WV: TUMat;
   begin
-    W := Xf * TUMat.RotationZ(((GetTickCount64 mod 6000) / 6000) * 2 * Pi);
-    V := TUMat.View(TUVec3.Make(0, 8, 0), TUVec3.Make(0, 0, 0), TUVec3.Make(0, 0, 1));
-    P := TUMat.Proj(Pi / 4, 1, 1, 100);
+    W := Xf;// * TUMat.RotationZ(((GetTickCount64 mod 6000) / 6000) * 2 * Pi);
+    V := Camera.V;
+    P := Camera.P;
     WV := W * V;
     glMatrixMode(GL_MODELVIEW);
     glLoadMatrixf(@WV);
@@ -98,6 +142,7 @@ procedure TForm1.Tick;
         var JointWeights: PUFloatArr;
         var VertexSkin: TUVec3;
         var SkinJoint: TUSceneData.TNodeInterface;
+        var SkXf, SkBind, ShapeBind: TUMat;
       begin
         WeightsOffset := SkinSubset.WeightCount * SizeOf(UInt32);
         for i := 0 to MeshSubset.IndexCount - 1 do
@@ -106,10 +151,13 @@ procedure TForm1.Tick;
           JointIndices := PUInt32Arr(SkinSubset.VertexData + (MeshSubset.Index[i] * SkinSubset.VertexSize));
           JointWeights := PUFloatArr(Pointer(JointIndices) + WeightsOffset);
           VertexSkin := TUVec3.Zero;
+          ShapeBind := SkinAttach.Skin.ShapeBind;
           for w := 0 to SkinSubset.WeightCount - 1 do
           begin
             SkinJoint := SkinAttach.JointBindings[JointIndices^[w]];
-            S := SkinAttach.Skin.Joints[JointIndices^[w]].Bind * SkinJoint.Transform;
+            SkXf := SkinJoint.Transform;
+            SkBind := SkinAttach.Skin.Joints[JointIndices^[w]].Bind;
+            S := ShapeBind * SkBind * SkXf;
             VertexSkin += Vertex^.Transform4x3(S) * JointWeights^[w];
           end;
           glVertex3fv(@VertexSkin);
@@ -125,8 +173,20 @@ procedure TForm1.Tick;
       glEnd();
     end;
     var i: Int32;
+    var Xf: TUMat;
+    var n: TUSceneData.TNodeInterface;
   begin
-    SetupTransforms(Node.Transform);
+    Xf := Node.Transform;
+    n := Node.Parent;
+    //if Assigned(n) then Xf := n.Transform;
+    while Assigned(n) do
+    begin
+      //Xf := Xf * n.Transform;
+      //Xf := n.Transform * Xf;
+      n := n.Parent;
+    end;
+    SetupTransforms(Xf);
+    //SetupTransforms(TUMat.Identity);
     for i := 0 to High(Node.Attachments) do
     begin
       if (Node.Attachments[i] is TUSceneData.TAttachmentMesh) then
@@ -152,6 +212,21 @@ procedure TForm1.Tick;
       begin
         Xf := Animation.Tracks[i].Sample(Time, True);
         Animation.Tracks[i].Target.Transform := Xf;
+        Animation.Tracks[i].Target.UpdateTransform := True;
+      end;
+    end;
+    procedure PropagateTransforms(const Node: TUSceneData.TNodeInterface);
+      var i: Int32;
+    begin
+      if Assigned(Node.Parent) and Node.UpdateTransform then
+      begin
+        Node.Transform := Node.Transform * Node.Parent.Transform;
+        //WriteLn(Node.Transform.ToString);
+      end;
+      Node.UpdateTransform := False;
+      for i := 0 to High(Node.Children) do
+      begin
+        PropagateTransforms(Node.Children[i]);
       end;
     end;
     var i: Int32;
@@ -160,6 +235,7 @@ procedure TForm1.Tick;
     begin
       UpdateTracks(Scene.AnimationList[i]);
     end;
+    PropagateTransforms(Scene.RootNode);
   end;
   procedure RenderMesh(const Mesh: TUSceneData.TMeshInterface);
     procedure RenderSubset(const Subset: TUSceneData.TMeshInterface.TSubset);
@@ -185,9 +261,7 @@ procedure TForm1.Tick;
     end;
   end;
 begin
-  glClearColor(0.2, 0.2, 0.2, 1);
-  glClear(GL_COLOR_BUFFER_BIT);
-  //UpdateAnimations(TUFloat(CurTime) * 0.001);
+  UpdateAnimations(TUFloat(CurTime) * 0.0001);
   //PropagateTransforms(Scene.RootNode);
   //glEnable(GL_TEXTURE_2D);
   glShadeModel(GL_FLAT);
