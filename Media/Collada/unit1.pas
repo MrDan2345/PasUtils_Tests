@@ -36,24 +36,11 @@ implementation
 {$R *.lfm}
 
 procedure TForm1.Initialize;
-  procedure PropagateTransforms(const Node: TUSceneData.TNodeInterface);
-    var i: Int32;
-  begin
-    if Assigned(Node.Parent) then
-    begin
-      Node.Transform := Node.Transform * Node.Parent.Transform;
-    end;
-    Node.UpdateTransform := False;
-    for i := 0 to High(Node.Children) do
-    begin
-      PropagateTransforms(Node.Children[i]);
-    end;
-  end;
 begin
   StartTime := GetTickCount64;
   Scene := TUSceneDataDAE.Create();
   Scene.Load('Assets/boxes3.dae');
-  PropagateTransforms(Scene.RootNode);
+  //Scene.Load('Assets/skin.dae');
   WriteLn(Length(Scene.MeshList));
 end;
 
@@ -174,17 +161,8 @@ procedure TForm1.DrawMesh;
     end;
     var i: Int32;
     var Xf: TUMat;
-    var n: TUSceneData.TNodeInterface;
   begin
     Xf := Node.Transform;
-    n := Node.Parent;
-    //if Assigned(n) then Xf := n.Transform;
-    while Assigned(n) do
-    begin
-      //Xf := Xf * n.Transform;
-      //Xf := n.Transform * Xf;
-      n := n.Parent;
-    end;
     SetupTransforms(Xf);
     //SetupTransforms(TUMat.Identity);
     for i := 0 to High(Node.Attachments) do
@@ -211,22 +189,7 @@ procedure TForm1.DrawMesh;
       for i := 0 to High(Animation.Tracks) do
       begin
         Xf := Animation.Tracks[i].Sample(Time, True);
-        Animation.Tracks[i].Target.Transform := Xf;
-        Animation.Tracks[i].Target.UpdateTransform := True;
-      end;
-    end;
-    procedure PropagateTransforms(const Node: TUSceneData.TNodeInterface);
-      var i: Int32;
-    begin
-      if Assigned(Node.Parent) and Node.UpdateTransform then
-      begin
-        Node.Transform := Node.Transform * Node.Parent.Transform;
-        //WriteLn(Node.Transform.ToString);
-      end;
-      Node.UpdateTransform := False;
-      for i := 0 to High(Node.Children) do
-      begin
-        PropagateTransforms(Node.Children[i]);
+        Animation.Tracks[i].Target.LocalTransform := Xf;
       end;
     end;
     var i: Int32;
@@ -235,7 +198,6 @@ procedure TForm1.DrawMesh;
     begin
       UpdateTracks(Scene.AnimationList[i]);
     end;
-    PropagateTransforms(Scene.RootNode);
   end;
   procedure RenderMesh(const Mesh: TUSceneData.TMeshInterface);
     procedure RenderSubset(const Subset: TUSceneData.TMeshInterface.TSubset);
@@ -262,7 +224,6 @@ procedure TForm1.DrawMesh;
   end;
 begin
   UpdateAnimations(TUFloat(CurTime) * 0.0001);
-  //PropagateTransforms(Scene.RootNode);
   //glEnable(GL_TEXTURE_2D);
   glShadeModel(GL_FLAT);
   //glShadeModel(GL_SMOOTH);
