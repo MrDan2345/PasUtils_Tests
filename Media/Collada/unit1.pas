@@ -41,6 +41,7 @@ begin
   Scene := TUSceneDataDAE.Create();
   Scene.Load('Assets/boxes3.dae');
   //Scene.Load('Assets/skin.dae');
+  //Scene.Load('Assets/box1.dae');
   WriteLn(Length(Scene.MeshList));
 end;
 
@@ -86,7 +87,7 @@ procedure TForm1.DrawMesh;
   procedure SetupTransforms(const Xf: TUMat);
     var W, V, P, WV: TUMat;
   begin
-    W := Xf;// * TUMat.RotationZ(((GetTickCount64 mod 6000) / 6000) * 2 * Pi);
+    W := Xf * TUMat.RotationZ(((GetTickCount64 mod 6000) / 6000) * 2 * Pi);
     V := Camera.V;
     P := Camera.P;
     WV := W * V;
