@@ -38,7 +38,8 @@ implementation
 procedure TForm1.Initialize;
 begin
   StartTime := GetTickCount64;
-  Scene := TUSceneDataDAE.Create();
+  Scene := TUSceneDataDAE.Create([], sdu_z);
+  //Scene.Load('Assets/X_Bot.dae');
   Scene.Load('Assets/boxes3.dae');
   //Scene.Load('Assets/skin.dae');
   //Scene.Load('Assets/box1.dae');
