@@ -3,8 +3,8 @@ object Form1: TForm1
   Height = 601
   Top = 243
   Width = 800
-  BorderStyle = bsSingle
   Caption = 'ColladaTest'
   Position = poScreenCenter
   LCLVersion = '3.99.0.0'
+  WindowState = wsMaximized
 end

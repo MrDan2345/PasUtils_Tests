@@ -38,11 +38,12 @@ implementation
 procedure TForm1.Initialize;
 begin
   StartTime := GetTickCount64;
-  Scene := TUSceneDataDAE.Create([], sdu_z);
+  Scene := TUSceneDataDAE.Create([sdo_optimize, sdo_gen_normals, sdo_gen_tangents], sdu_z);
   //Scene.Load('Assets/X_Bot.dae');
-  Scene.Load('Assets/boxes3.dae');
+  //Scene.Load('Assets/boxes3.dae');
   //Scene.Load('Assets/skin.dae');
-  //Scene.Load('Assets/box1.dae');
+  Scene.Load('Assets/box.dae');
+  //Scene.Load('Assets/plane.dae');
   WriteLn(Length(Scene.MeshList));
 end;
 
@@ -55,7 +56,8 @@ procedure TForm1.Tick;
 begin
   CurTime := GetTickCount64 - StartTime;
   Camera.V := TUMat.View(TUVec3.Make(10, 10, 10), TUVec3.Make(0, 0, 0), TUVec3.Make(0, 0, 1));
-  Camera.P := TUMat.Proj(Pi / 4, 1, 1, 100);
+  Camera.P := TUMat.Proj(Pi / 4, ClientWidth / ClientHeight, 1, 100);
+  glViewport(0, 0, ClientWidth, ClientHeight);
   glClearColor(0.2, 0.2, 0.2, 1);
   glClearDepth(1);
   glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT);
@@ -88,7 +90,7 @@ procedure TForm1.DrawMesh;
   procedure SetupTransforms(const Xf: TUMat);
     var W, V, P, WV: TUMat;
   begin
-    W := Xf * TUMat.RotationZ(((GetTickCount64 mod 6000) / 6000) * 2 * Pi);
+    W := Xf * TUMat.RotationZ(((CurTime mod 10000) / 10000) * UTwoPi);
     V := Camera.V;
     P := Camera.P;
     WV := W * V;
@@ -100,23 +102,118 @@ procedure TForm1.DrawMesh;
   procedure RenderNode(const Node: TUSceneData.TNodeInterface);
     procedure RenderMesh(const MeshAttach: TUSceneData.TAttachmentMesh);
       procedure RenderSubset(Subset: TUSceneData.TMeshInterface.TSubset);
-        var i: Int32;
-        var Vertex: PUVec3;
-      begin
-        for i := 0 to Subset.IndexCount - 1 do
+        function VertexData(const Vertex, Offset: Int32): Pointer;
         begin
-          Vertex := PUVec3(Subset.VertexData + (Subset.Index[i] * Subset.VertexSize));
-          glVertex3fv(PGLFloat(Vertex));
+          Result := Subset.VertexData + (Subset.Index[Vertex] * Subset.VertexSize) + Offset;
         end;
+        var vd: TUVertexDescriptor;
+        var i, d: Int32;
+        var PosId, NormalId, TangentId, BinormalId: Int32;
+        var PosOff, NormalOff, TangentOff, BinormalOff: Int32;
+        var v, n: TUVec3;
+      begin
+        vd := Subset.VertexDescriptor;
+        PosId := -1;
+        NormalId := -1;
+        TangentId := -1;
+        BinormalId := -1;
+        for d := 0 to High(vd) do
+        begin
+          case vd[d].Semantic of
+            as_position:
+            begin
+              PosId := d;
+              PosOff := UComputeVertexAttributeOffset(vd, d);
+            end;
+            as_normal:
+            begin
+              NormalId := d;
+              NormalOff := UComputeVertexAttributeOffset(vd, d);
+            end;
+            as_tangent:
+            begin
+              TangentId := d;
+              TangentOff := UComputeVertexAttributeOffset(vd, d);
+            end;
+            as_binormal:
+            begin
+              BinormalId := d;
+              BinormalOff := UComputeVertexAttributeOffset(vd, d);
+            end
+            else;
+          end;
+        end;
+        if PosId = -1 then Exit;
+        for d := 0 to High(vd) do
+        begin
+          case vd[d].Semantic of
+            as_position:
+            begin
+              glBegin(GL_TRIANGLES);
+              glColor3f(1, 1, 1);
+              for i := 0 to Subset.IndexCount - 1 do
+              begin
+                v := PUVec3(VertexData(i, PosOff))^;
+                glVertex3fv(@v);
+              end;
+              glEnd();
+            end;
+            as_normal:
+            begin
+              //Continue;
+              glBegin(GL_LINES);
+              glColor3f(0, 0, 1);
+              for i := 0 to Subset.IndexCount - 1 do
+              begin
+                v := PUVec3(VertexData(i, PosOff))^;
+                n := PUVec3(VertexData(i, NormalOff))^;
+                glVertex3fv(@v);
+                v := v + n;
+                glVertex3fv(@v);
+              end;
+              glEnd();
+            end;
+            as_tangent:
+            begin
+              //Continue;
+              glBegin(GL_LINES);
+              glColor3f(1, 0, 0);
+              for i := 0 to Subset.IndexCount - 1 do
+              begin
+                v := PUVec3(VertexData(i, PosOff))^;
+                n := PUVec3(VertexData(i, TangentOff))^;
+                glVertex3fv(@v);
+                v := v + n;
+                glVertex3fv(@v);
+              end;
+              glEnd();
+            end;
+            as_binormal:
+            begin
+              //Continue;
+              glBegin(GL_LINES);
+              glColor3f(0, 1, 0);
+              for i := 0 to Subset.IndexCount - 1 do
+              begin
+                v := PUVec3(VertexData(i, PosOff))^;
+                n := PUVec3(VertexData(i, BinormalOff))^;
+                glVertex3fv(@v);
+                v := v + n;
+                glVertex3fv(@v);
+              end;
+              glEnd();
+            end;
+            else;
+          end;
+        end;
+        glColor3f(1, 1, 1);
       end;
       var i: Int32;
     begin
-      glBegin(GL_TRIANGLES);
       for i := 0 to High(MeshAttach.Mesh.Subsets) do
       begin
         RenderSubset(MeshAttach.Mesh.Subsets[i]);
       end;
-      glEnd();
     end;
     procedure RenderSkin(const SkinAttach: TUSceneData.TAttachmentSkin);
       procedure RenderSubset(
