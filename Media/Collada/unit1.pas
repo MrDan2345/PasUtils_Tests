@@ -28,6 +28,16 @@ public
   procedure DrawMesh;
 end;
 
+type TUScopedTimer = record
+strict private
+  var _Start: UInt64;
+  procedure Initialize;
+  procedure Finalize;
+public
+  class operator Initialize(var v: TUScopedTimer);
+  class operator Finalize(var v: TUScopedTimer);
+end;
+
 var
   Form1: TForm1;
 
@@ -36,6 +46,7 @@ implementation
 {$R *.lfm}
 
 procedure TForm1.Initialize;
+  var ScopedTimer: TUScopedTimer;
 begin
   StartTime := GetTickCount64;
   Scene := TUSceneDataDAE.Create([sdo_optimize, sdo_gen_normals, sdo_gen_tangents], sdu_z);
@@ -334,6 +345,26 @@ begin
   begin
     //RenderMesh(Scene.MeshList[(CurTime div 5000) mod Length(Scene.MeshList)]);
   end;
+end;
+
+procedure TUScopedTimer.Initialize;
+begin
+  _Start := GetTickCount64;
+end;
+
+procedure TUScopedTimer.Finalize;
+begin
+  WriteLn('Scoped Timer: ', GetTickCount64 - _Start);
+end;
+
+class operator TUScopedTimer.Initialize(var v: TUScopedTimer);
+begin
+  v.Initialize;
+end;
+
+class operator TUScopedTimer.Finalize(var v: TUScopedTimer);
+begin
+  v.Finalize;
 end;
 
 end.
