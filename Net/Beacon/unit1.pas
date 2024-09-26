@@ -55,7 +55,7 @@ begin
 end;
 
 procedure TForm1.Timer1Timer(Sender: TObject);
-  var Peers: TUInAddrArray;
+  var Peers: TUNet.TBeacon.TPeerArray;
   var i: Int32;
 begin
   Peers := Beacon.Ptr.Peers;
@@ -63,7 +63,7 @@ begin
   ListBox1.Items.Clear;
   for i := 0 to High(Peers) do
   begin
-    ListBox1.Items.Append(UNetNetAddrToStr(Peers[i]));
+    ListBox1.Items.Append(UNetNetAddrToStr(Peers[i].Addr) + ' (' + Peers[i].Message + ')');
   end;
   ListBox1.Items.EndUpdate;
 end;
