@@ -12,8 +12,7 @@ uses
   WinSock2,
   {$else}
   {$endif}
-  Unix,
-  BaseUnix,
+  Windows,
   CommonUtils,
   NetUtils;
 
@@ -37,8 +36,8 @@ procedure Run;
   var Sock, SockOther: TUSocket;
   var OtherSockAddrLen: TUSockLen;
 begin
-  //Test;
-  //Exit;
+  Test;
+  Exit;
   WriteLn('Host Name: ', UNetHostName);
   Addr := UNetLocalAddr;
   WriteLn('Local Addr (Net): ', UNetNetAddrToStr(Addr));
