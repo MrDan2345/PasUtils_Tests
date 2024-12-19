@@ -12,9 +12,14 @@ type TPeer = class
 private
   var _Addr: TUInAddr;
   var _TimeStamp: UInt64;
+  var _MacAddr: TUMacAddr;
   var _UIPanel: TPanel;
+  var _UILabelName: TLabel;
+  var _UIButtonWake: TButton;
+  var _UIButtonDelete: TButton;
 public
   property Addr: TUInAddr read _Addr;
+  property MacAddr: TUMacAddr read _MacAddr;
   constructor Create(const AAddr: TUInAddr);
   destructor Destroy; override;
   procedure SetupUI(const ParentPanel: TPanel);
@@ -40,6 +45,7 @@ public
   function FindPeer(const Addr: TUInAddr): TPeer;
   function FindOrAddPeer(const PeerInfo: TUNet.TBeacon.TPeer): TPeer;
   procedure OnTimer(Sender: TObject);
+  procedure AddDummyPeer;
 end;
 
 var Form1: TForm1;
@@ -76,13 +82,41 @@ begin
     Align := alTop;
     BorderSpacing.Around := 4;
   end;
+  _UILabelName := TLabel.Create(_UIPanel);
+  _UILabelName.Parent := _UIPanel;
+  with _UILabelName do
+  begin
+    Font.Color := $ffffff;
+    Align := alLeft;
+    Layout := tlCenter;
+    BorderSpacing.Left := 8;
+    Caption := '?';
+  end;
+  _UIButtonWake := TButton.Create(_UIPanel);
+  _UIButtonWake.Parent := _UIPanel;
+  with _UIButtonWake do
+  begin
+    _UIButtonWake.Align := alRight;
+    _UIButtonWake.Caption := 'Wake';
+  end;
+  _UIButtonDelete := TButton.Create(_UIPanel);
+  _UIButtonDelete.Parent := _UIPanel;
+  with _UIButtonDelete do
+  begin
+    _UIButtonDelete.Align := alRight;
+    _UIButtonDelete.Caption := 'Delete';
+  end;
 end;
 
 procedure TPeer.Update(const NewTimeStamp: UInt64; const Message: String);
+  var Mac: TUMacAddr;
 begin
   if _TimeStamp = NewTimeStamp then Exit;
   _TimeStamp := NewTimeStamp;
-
+  Mac := UNetStrToMacAddr(Message);
+  if not Mac.IsValid then Exit;
+  _MacAddr := Mac;
+  _UILabelName.Caption := UNetNetAddrToStr(_Addr) + '  [' + UNetMacAddrToStr(_MacAddr) + ']';
 end;
 
 procedure TForm1.FormCreate(Sender: TObject);
@@ -104,7 +138,7 @@ begin
   Timer1.Interval := 1000;
   Timer1.OnTimer := @OnTimer;
   Timer1.Enabled := True;
-  //AddPeer;
+  AddDummyPeer;
 end;
 
 procedure TForm1.FormClose(Sender: TObject; var CloseAction: TCloseAction);
@@ -116,21 +150,20 @@ function TForm1.FindPeer(const Addr: TUInAddr): TPeer;
   var i: Int32;
 begin
   for i := 0 to High(Peers) do
-  if Peers[i].Addr = Addr then Exit(Peers[i]);
+  if Peers[i].Addr.Addr32 = Addr.Addr32 then Exit(Peers[i]);
   Result := nil;
 end;
 
 function TForm1.FindOrAddPeer(const PeerInfo: TUNet.TBeacon.TPeer): TPeer;
-  var Peer: TPeer;
 begin
-  Peer := FindPeer(PeerInfo.Addr);
-  if not Assigned(Peer) then
+  Result := FindPeer(PeerInfo.Addr);
+  if not Assigned(Result) then
   begin
-    Peer := TPeer.Create(PeerInfo.Addr);
-    Peer.SetupUI(PanelList1);
-    specialize UArrAppend<TPeer>(Peers, Peer);
+    Result := TPeer.Create(PeerInfo.Addr);
+    Result.SetupUI(PanelList1);
+    specialize UArrAppend<TPeer>(Peers, Result);
   end;
-  Peer.Update(PeerInfo.TimeStamp, PeerInfo.Message);
+  Result.Update(PeerInfo.TimeStamp, PeerInfo.Message);
 end;
 
 procedure TForm1.OnTimer(Sender: TObject);
@@ -144,6 +177,16 @@ begin
     Peer := FindOrAddPeer(BeaconPeers[i]);
     Peer.Update(BeaconPeers[i].TimeStamp, BeaconPeers[i].Message);
   end;
+end;
+
+procedure TForm1.AddDummyPeer;
+  var Info: TUNet.TBeacon.TPeer;
+  var Peer: TPeer;
+begin
+  Info.Addr := TUInAddr.LocalhostN;
+  Info.Message := '18:c0:4d:d8:55:ec';
+  Peer := FindOrAddPeer(Info);
+  Peer.Update(Info.TimeStamp, Info.Message);
 end;
 
 end.
