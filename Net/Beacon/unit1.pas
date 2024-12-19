@@ -35,6 +35,7 @@ procedure TForm1.FormActivate(Sender: TObject);
 begin
   if Timer1.Enabled then Exit;
   Beacon := TUNet.TBeacon.Create;
+  Beacon.Ptr.Message := UNetMacAddrToStr(UNetLocalMacAddr);
   Timer1.Enabled := True;
 end;
 
