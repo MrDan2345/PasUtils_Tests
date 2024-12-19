@@ -40,7 +40,7 @@ procedure TForm1.Button1Click(Sender: TObject);
   var Msg: packed record
     //EthHeader: TEthernetHeader;
     Sync: array[0..5] of UInt8;
-    MacAddr: array[0..16 * 6 - 1] of UInt8;
+    MacAddr: array[0..16] of TUMacAddr;
   end;
   var Addr: TUSockAddr;
   var Mac: TUMacAddr;
@@ -52,18 +52,22 @@ begin
   //Msg.EthHeader.Protocol := htons(ETH_P_ALL);
   Mac := UNetStrToMacAddr('18:c0:4d:d8:55:ec');
   for i := 0 to 5 do Msg.Sync[i] := $ff;
-  for i := 0 to 15 do Move(Mac, Msg.MacAddr[i * 6], SizeOf(TUMacAddr));
+  for i := 0 to High(Msg.MacAddr) do Msg.MacAddr[i] := Mac;
   //Sock := TUSocket.Create(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
   Sock := TUSocket.CreateUDP();
   Sock.SetSockOpt(SO_BROADCAST, 1);
   try
     Addr := TUSockAddr.Default;
-    Addr.sin_addr := TUInAddr.Broadcast;
-    Addr.sin_port := 7;
-    BytesSent := Sock.SendTo(@Msg, SizeOf(MSg), 0, @Addr, SizeOf(Addr));
-    Addr.sin_addr := UNetStrToNetAddr('192.168.1.129');
-    Addr.sin_port := 7;
-    BytesSent := Sock.SendTo(@Msg, SizeOf(MSg), 0, @Addr, SizeOf(Addr));
+    Addr.sin_addr := UNetLocalAddr;// TUInAddr.Broadcast;
+    Addr.sin_addr.Addr8[3] := $ff;
+    Addr.sin_port := UNetHostToNetShort(7);
+    for i := 0 to 4 do
+    begin
+      BytesSent := Sock.SendTo(@Msg, SizeOf(Msg), 0, @Addr, SizeOf(Addr));
+      Addr.sin_addr := UNetStrToNetAddr('192.168.1.129');
+      BytesSent := Sock.SendTo(@Msg, SizeOf(Msg), 0, @Addr, SizeOf(Addr));
+      Sleep(10);
+    end;
   finally
     Sock.Close;
   end;
