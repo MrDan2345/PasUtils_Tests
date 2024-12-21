@@ -1,43 +1,45 @@
 object Form1: TForm1
   Left = 495
-  Height = 288
+  Height = 360
   Top = 437
-  Width = 679
+  Width = 849
   Caption = 'Wake On Lan'
-  ClientHeight = 288
-  ClientWidth = 679
-  Position = poScreenCenter
-  LCLVersion = '3.99.0.0'
+  ClientHeight = 360
+  ClientWidth = 849
+  DesignTimePPI = 120
   OnClose = FormClose
   OnCreate = FormCreate
+  Position = poScreenCenter
+  LCLVersion = '2.2.6.0'
   object LabelAddress1: TLabel
     AnchorSideLeft.Control = LabelName1
     AnchorSideLeft.Side = asrBottom
-    Left = 61
-    Height = 16
-    Top = 13
-    Width = 49
-    BorderSpacing.Left = 13
+    Left = 72
+    Height = 20
+    Top = 16
+    Width = 53
+    BorderSpacing.Left = 16
     Caption = 'Address'
     ParentColor = False
   end
   object LabelMac1: TLabel
     AnchorSideLeft.Control = LabelAddress1
     AnchorSideLeft.Side = asrBottom
-    Left = 123
-    Height = 16
-    Top = 13
-    Width = 25
-    BorderSpacing.Left = 13
+    Left = 141
+    Height = 20
+    Top = 16
+    Width = 28
+    BorderSpacing.Left = 16
     Caption = 'Mac'
     ParentColor = False
   end
   object LabelName1: TLabel
-    Left = 13
-    Height = 16
-    Top = 13
-    Width = 35
+    Left = 16
+    Height = 20
+    Top = 16
+    Width = 40
     Caption = 'Name'
+    ParentColor = False
   end
   object ScrollBox1: TScrollBox
     AnchorSideLeft.Control = Owner
@@ -45,33 +47,32 @@ object Form1: TForm1
     AnchorSideRight.Side = asrBottom
     AnchorSideBottom.Control = Owner
     AnchorSideBottom.Side = asrBottom
-    Left = 16
-    Height = 232
-    Top = 40
-    Width = 647
+    Left = 20
+    Height = 290
+    Top = 50
+    Width = 809
     HorzScrollBar.Page = 1
     HorzScrollBar.Visible = False
-    VertScrollBar.Page = 17
+    VertScrollBar.Page = 20
     Anchors = [akTop, akLeft, akRight, akBottom]
     AutoSize = True
-    BorderSpacing.Left = 16
-    BorderSpacing.Right = 16
-    BorderSpacing.Bottom = 16
-    ClientHeight = 230
-    ClientWidth = 645
+    BorderSpacing.Left = 20
+    BorderSpacing.Right = 20
+    BorderSpacing.Bottom = 20
+    ClientHeight = 286
+    ClientWidth = 805
     Color = clBlack
-    ParentBackground = False
     ParentColor = False
     TabOrder = 0
     object PanelList1: TPanel
       Left = 0
-      Height = 1
+      Height = 0
       Top = 0
-      Width = 629
+      Width = 785
       Align = alTop
       AutoSize = True
-      BorderSpacing.Right = 16
-      BorderSpacing.Bottom = 16
+      BorderSpacing.Right = 20
+      BorderSpacing.Bottom = 20
       BevelOuter = bvNone
       Color = clBlack
       ParentBackground = False

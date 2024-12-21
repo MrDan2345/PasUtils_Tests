@@ -19,6 +19,7 @@ private
   var _UILabelStaus: TLabel;
   var _UIButtonWake: TButton;
   var _UIButtonDelete: TButton;
+  var _IdleUpdate: UInt64;
 public
   property Addr: TUInAddr read _Addr;
   property MacAddr: TUMacAddr read _MacAddr;
@@ -29,6 +30,7 @@ public
   procedure SetupUI(const ParentPanel: TPanel);
   procedure Update(const NewTimeStamp: UInt64; const Message: String);
   procedure UpdateUI;
+  procedure IdleUpdate;
   procedure LoadJson(const Json: TUJson);
   procedure OnWake(Caller: TObject);
   procedure OnDelete(Caller: TObject);
@@ -72,6 +74,7 @@ begin
   _Addr := AAddr;
   _TimeStamp := 0;
   _UIPanel := nil;
+  _IdleUpdate := 0;
 end;
 
 constructor TPeer.Create(const Json: TUJson);
@@ -79,6 +82,7 @@ begin
   LoadJson(Json);
   _TimeStamp := 0;
   _UIPanel := nil;
+  _IdleUpdate := 0;
 end;
 
 destructor TPeer.Destroy;
@@ -165,6 +169,7 @@ end;
 
 procedure TPeer.UpdateUI;
 begin
+  _IdleUpdate := GetTickCount64;
   _UILabelName.Caption := _Name + ' ' + UNetNetAddrToStr(_Addr) + '  [' + UNetMacAddrToStr(_MacAddr) + ']';
   if (_TimeStamp = 0) or (GetTickCount64 - _TimeStamp > 60 * 1000) then
   begin
@@ -176,6 +181,12 @@ begin
     _UILabelStaus.Caption := '[Online]';
     _UILabelStaus.Font.Color := $009000;
   end;
+end;
+
+procedure TPeer.IdleUpdate;
+begin
+  if GetTickCount64 - _IdleUpdate <= 10 * 1000 then Exit;
+  UpdateUI;
 end;
 
 procedure TPeer.LoadJson(const Json: TUJson);
@@ -263,6 +274,7 @@ begin
     Peer := FindOrAddPeer(BeaconPeers[i]);
     Peer.Update(BeaconPeers[i].TimeStamp, BeaconPeers[i].Message);
   end;
+  for i := 0 to High(Peers) do Peers[i].IdleUpdate;
   if Length(Peers) = PrevCount then Exit;
   SavePeers;
 end;
