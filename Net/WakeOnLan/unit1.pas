@@ -13,17 +13,25 @@ private
   var _Addr: TUInAddr;
   var _TimeStamp: UInt64;
   var _MacAddr: TUMacAddr;
+  var _Name: String;
   var _UIPanel: TPanel;
   var _UILabelName: TLabel;
+  var _UILabelStaus: TLabel;
   var _UIButtonWake: TButton;
   var _UIButtonDelete: TButton;
 public
   property Addr: TUInAddr read _Addr;
   property MacAddr: TUMacAddr read _MacAddr;
+  property Name: String read _Name;
   constructor Create(const AAddr: TUInAddr);
+  constructor Create(const Json: TUJson);
   destructor Destroy; override;
   procedure SetupUI(const ParentPanel: TPanel);
   procedure Update(const NewTimeStamp: UInt64; const Message: String);
+  procedure UpdateUI;
+  procedure LoadJson(const Json: TUJson);
+  procedure OnWake(Caller: TObject);
+  procedure OnDelete(Caller: TObject);
 end;
 type TPeerArray = array of TPeer;
 
@@ -32,6 +40,7 @@ type TForm1 = class(TForm)
   LabelMac1: TLabel;
   LabelAddress1: TLabel;
   PanelList1: TPanel;
+  ScrollBox1: TScrollBox;
   Timer1: TTimer;
   procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
   procedure FormCreate(Sender: TObject);
@@ -41,11 +50,15 @@ private
   var LocalMac: TUMacAddr;
   var Beacon: TUNet.TBeaconRef;
   var Peers: TPeerArray;
+  var PeersToDelete: TPeerArray;
 public
   function FindPeer(const Addr: TUInAddr): TPeer;
   function FindOrAddPeer(const PeerInfo: TUNet.TBeacon.TPeer): TPeer;
   procedure OnTimer(Sender: TObject);
-  procedure AddDummyPeer;
+  procedure AddDummyPeer(const PeerName: String = 'Name'; const AddrOffset: Int8 = 0);
+  procedure DeletePeer(const Peer: TPeer);
+  procedure LoadPeers;
+  procedure SavePeers;
 end;
 
 var Form1: TForm1;
@@ -57,6 +70,13 @@ implementation
 constructor TPeer.Create(const AAddr: TUInAddr);
 begin
   _Addr := AAddr;
+  _TimeStamp := 0;
+  _UIPanel := nil;
+end;
+
+constructor TPeer.Create(const Json: TUJson);
+begin
+  LoadJson(Json);
   _TimeStamp := 0;
   _UIPanel := nil;
 end;
@@ -74,9 +94,9 @@ begin
   with _UIPanel do
   begin
     Height := 32;
-    Color := $808080;
+    Color := $505050;
     BevelOuter := bvSpace;
-    BevelColor := $c0c0c0;
+    BevelColor := $808080;
     BevelWidth := 2;
     BorderStyle := bsNone;
     Align := alTop;
@@ -92,31 +112,87 @@ begin
     BorderSpacing.Left := 8;
     Caption := '?';
   end;
+  _UILabelStaus := TLabel.Create(_UIPanel);
+  _UILabelStaus.Parent := _UIPanel;
+  with _UILabelStaus do
+  begin
+    Font.Color := $ffffff;
+    Align := alRight;
+    Layout := tlCenter;
+    BorderSpacing.Right := 8;
+    Caption := '[?]';
+  end;
   _UIButtonWake := TButton.Create(_UIPanel);
   _UIButtonWake.Parent := _UIPanel;
   with _UIButtonWake do
   begin
-    _UIButtonWake.Align := alRight;
-    _UIButtonWake.Caption := 'Wake';
+    Align := alRight;
+    BorderSpacing.Left := 2;
+    BorderSpacing.Right := 2;
+    BorderSpacing.Top := 1;
+    BorderSpacing.Bottom := 1;
+    Caption := 'Wake';
+    OnClick := @OnWake;
   end;
   _UIButtonDelete := TButton.Create(_UIPanel);
   _UIButtonDelete.Parent := _UIPanel;
   with _UIButtonDelete do
   begin
-    _UIButtonDelete.Align := alRight;
-    _UIButtonDelete.Caption := 'Delete';
+    Align := alRight;
+    BorderSpacing.Left := 2;
+    BorderSpacing.Right := 2;
+    BorderSpacing.Top := 1;
+    BorderSpacing.Bottom := 1;
+    Caption := 'Delete';
+    OnClick := @OnDelete;
   end;
 end;
 
 procedure TPeer.Update(const NewTimeStamp: UInt64; const Message: String);
   var Mac: TUMacAddr;
+  var MsgArr: TUStrArray;
 begin
   if _TimeStamp = NewTimeStamp then Exit;
   _TimeStamp := NewTimeStamp;
-  Mac := UNetStrToMacAddr(Message);
-  if not Mac.IsValid then Exit;
+  MsgArr := UStrExplode(Message, '|');
+  if Length(MsgArr) < 2 then Exit;
+  _Name := MsgArr[0];
+  Mac := UNetStrToMacAddr(MsgArr[1]);
+  if (Length(_Name) = 0) or (not Mac.IsValid) then Exit;
   _MacAddr := Mac;
-  _UILabelName.Caption := UNetNetAddrToStr(_Addr) + '  [' + UNetMacAddrToStr(_MacAddr) + ']';
+  UpdateUI;
+end;
+
+procedure TPeer.UpdateUI;
+begin
+  _UILabelName.Caption := _Name + ' ' + UNetNetAddrToStr(_Addr) + '  [' + UNetMacAddrToStr(_MacAddr) + ']';
+  if (_TimeStamp = 0) or (GetTickCount64 - _TimeStamp > 60 * 1000) then
+  begin
+    _UILabelStaus.Caption := '[Offline]';
+    _UILabelStaus.Font.Color := $000060;
+  end
+  else
+  begin
+    _UILabelStaus.Caption := '[Online]';
+    _UILabelStaus.Font.Color := $009000;
+  end;
+end;
+
+procedure TPeer.LoadJson(const Json: TUJson);
+begin
+  _Name := Json['name'].Value;
+  _Addr := UNetStrToNetAddr(Json['addr'].Value);
+  _MacAddr := UNetStrToMacAddr(Json['mac'].Value);
+end;
+
+procedure TPeer.OnWake(Caller: TObject);
+begin
+  UNetWakeOnLan(_MacAddr);
+end;
+
+procedure TPeer.OnDelete(Caller: TObject);
+begin
+  Form1.DeletePeer(Self);
 end;
 
 procedure TForm1.FormCreate(Sender: TObject);
@@ -127,22 +203,25 @@ begin
   LabelName1.Caption := LocalName;
   LabelAddress1.Caption := UNetNetAddrToStr(LocalAddr);
   LabelMac1.Caption := UNetMacAddrToStr(LocalMac);
-  Caption := 'Wake On Lan ' + UNetNetAddrToStr(LocalAddr) + ' ' + UNetMacAddrToStr(LocalMac);
+  //Caption := 'Wake On Lan ' + UNetNetAddrToStr(LocalAddr) + ' ' + UNetMacAddrToStr(LocalMac);
   Beacon := TUNet.TBeacon.Create;
   Beacon.Ptr.Active := True;
   Beacon.Ptr.BroadcastInterval := 30 * 1000;
-  Beacon.Ptr.Message := UNetMacAddrToStr(UNetLocalMacAddr);
+  Beacon.Ptr.Message := LocalName + '|' + UNetMacAddrToStr(UNetLocalMacAddr);
   Beacon.Ptr.Port := 57210 + 22;
   Beacon.Ptr.Enabled := True;
   Timer1 := TTimer.Create(Self);
   Timer1.Interval := 1000;
   Timer1.OnTimer := @OnTimer;
   Timer1.Enabled := True;
-  AddDummyPeer;
+  LoadPeers;
+  //AddDummyPeer('Name1', 0);
+  //AddDummyPeer('Name2', 1);
 end;
 
 procedure TForm1.FormClose(Sender: TObject; var CloseAction: TCloseAction);
 begin
+  SavePeers;
   specialize UArrClear<TPeer>(Peers);
 end;
 
@@ -169,24 +248,75 @@ end;
 procedure TForm1.OnTimer(Sender: TObject);
   var BeaconPeers: TUNet.TBeacon.TPeerArray;
   var Peer: TPeer;
-  var i: Int32;
+  var i, PrevCount: Int32;
 begin
+  PrevCount := Length(Peers);
+  if Length(PeersToDelete) > 0 then
+  begin
+    for i := 0 to High(PeersToDelete) do
+    specialize UArrRemove<TPeer>(Peers, PeersToDelete[i]);
+    specialize UArrClear<TPeer>(PeersToDelete);
+  end;
   BeaconPeers := Beacon.Ptr.Peers;
   for i := 0 to High(BeaconPeers) do
   begin
     Peer := FindOrAddPeer(BeaconPeers[i]);
     Peer.Update(BeaconPeers[i].TimeStamp, BeaconPeers[i].Message);
   end;
+  if Length(Peers) = PrevCount then Exit;
+  SavePeers;
 end;
 
-procedure TForm1.AddDummyPeer;
+procedure TForm1.AddDummyPeer(const PeerName: String; const AddrOffset: Int8);
   var Info: TUNet.TBeacon.TPeer;
   var Peer: TPeer;
 begin
   Info.Addr := TUInAddr.LocalhostN;
-  Info.Message := '18:c0:4d:d8:55:ec';
+  Info.Addr.Addr8[3] += AddrOffset;
+  Info.Message := PeerName + '|18:c0:4d:d8:55:ec';
   Peer := FindOrAddPeer(Info);
   Peer.Update(Info.TimeStamp, Info.Message);
+end;
+
+procedure TForm1.DeletePeer(const Peer: TPeer);
+  var i: Int32;
+begin
+  for i := 0 to High(PeersToDelete) do
+  if PeersToDelete[i] = Peer then Exit;
+  specialize UArrAppend<TPeer>(PeersToDelete, Peer);
+end;
+
+procedure TForm1.LoadPeers;
+  var Json: TUJsonRef;
+  var i: Int32;
+begin
+  if not FileExists('peers.json') then Exit;
+  Json := TUJson.LoadFromFile('peers.json');
+  if not Json.IsValid then Exit;
+  if not Json.Ptr['peers'].IsArray then Exit;
+  SetLength(Peers, Json.Ptr['peers'].Count);
+  for i := 0 to High(Peers) do
+  begin
+    Peers[i] := TPeer.Create(Json.Ptr['peers'][i]);
+    Peers[i].SetupUI(PanelList1);
+    Peers[i].UpdateUI;
+  end;
+end;
+
+procedure TForm1.SavePeers;
+  var Json: TUJsonRef;
+  var i: Int32;
+begin
+  Json := TUJson.Make;
+  with Json.Ptr.AddArray('peers') do
+  for i := 0 to High(Peers) do
+  with AddObject() do
+  begin
+    AddValue('name', Peers[i].Name);
+    AddValue('addr', UNetNetAddrToStr(Peers[i].Addr));
+    AddValue('mac', UNetMacAddrToStr(Peers[i].MacAddr));
+  end;
+  Json.Ptr.SaveToFile('peers.json');
 end;
 
 end.
