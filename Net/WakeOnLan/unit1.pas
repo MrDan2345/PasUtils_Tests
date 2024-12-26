@@ -116,28 +116,6 @@ begin
     BorderSpacing.Left := 8;
     Caption := '?';
   end;
-  _UILabelStaus := TLabel.Create(_UIPanel);
-  _UILabelStaus.Parent := _UIPanel;
-  with _UILabelStaus do
-  begin
-    Font.Color := $ffffff;
-    Align := alRight;
-    Layout := tlCenter;
-    BorderSpacing.Right := 8;
-    Caption := '[?]';
-  end;
-  _UIButtonWake := TButton.Create(_UIPanel);
-  _UIButtonWake.Parent := _UIPanel;
-  with _UIButtonWake do
-  begin
-    Align := alRight;
-    BorderSpacing.Left := 2;
-    BorderSpacing.Right := 2;
-    BorderSpacing.Top := 1;
-    BorderSpacing.Bottom := 1;
-    Caption := 'Wake';
-    OnClick := @OnWake;
-  end;
   _UIButtonDelete := TButton.Create(_UIPanel);
   _UIButtonDelete.Parent := _UIPanel;
   with _UIButtonDelete do
@@ -149,6 +127,30 @@ begin
     BorderSpacing.Bottom := 1;
     Caption := 'Delete';
     OnClick := @OnDelete;
+  end;
+  _UIButtonWake := TButton.Create(_UIPanel);
+  _UIButtonWake.Parent := _UIPanel;
+  with _UIButtonWake do
+  begin
+    Height := _UIButtonDelete.Height;
+    AnchorToCompanion(akRight, 8, _UIButtonDelete);
+    BorderSpacing.Left := 2;
+    BorderSpacing.Right := 2;
+    BorderSpacing.Top := 1;
+    BorderSpacing.Bottom := 1;
+    Caption := 'Wake';
+    OnClick := @OnWake;
+  end;
+  _UILabelStaus := TLabel.Create(_UIPanel);
+  _UILabelStaus.Parent := _UIPanel;
+  with _UILabelStaus do
+  begin
+    Height := _UIButtonDelete.Height;
+    AnchorToCompanion(akRight, 8, _UIButtonWake);
+    Font.Color := $ffffff;
+    Layout := tlCenter;
+    BorderSpacing.Right := 8;
+    Caption := '[?]';
   end;
 end;
 
