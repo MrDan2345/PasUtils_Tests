@@ -188,6 +188,7 @@ end;
 procedure TPeer.IdleUpdate;
 begin
   if GetTickCount64 - _IdleUpdate <= 10 * 1000 then Exit;
+  if UNetPing(_Addr) then _TimeStamp := GetTickCount64;
   UpdateUI;
 end;
 
