@@ -138,6 +138,14 @@ procedure TServer.TRequestHandler.Execute;
     Response := Header + Response;
     SockClient.Send(@Response[1], Length(Response), 0);
   end;
+  procedure SendError400;
+    var Response: String;
+  begin
+    Response := 'HTTP/1.1 400 Bad Request'#$D#$A;
+    Response += 'Connection: close'#$D#$A;
+    Response += #$D#$A;
+    SockClient.Send(@Response[1], Length(Response), 0);
+  end;
   procedure SendError404;
     var Header: String;
     var Response: String;
