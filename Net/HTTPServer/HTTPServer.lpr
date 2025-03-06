@@ -123,35 +123,19 @@ procedure TServer.TRequestHandler.Execute;
   begin
     Method := UStrExplode(Request[0], ' ', True);
     if Length(Method) < 2 then Exit(406);
-    if LowerCase(Method[0]) <> 'get' then Exit(406);
+    if LowerCase(Method[0]) <> 'get' then Exit(405);
     if Method[1] = '/' then Method[1] := '/index.html';
     ServeFile := ServeDir + Method[1];
     if not CheckAcceptContent(['text/html']) then Exit(415);
     if not FileExists(ServeFile) then Exit(404);
     Result := 200;
-    Response := '<!doctype html>'#$D#$A + UFileToStr(ServeFile);
+    Response := UFileToStr(ServeFile);
     Header := 'HTTP/1.1 200 OK'#$D#$A;
     Header += 'Content-Type: text/html; charset=utf-8'#$D#$A;
     Header += 'Content-Length: ' + IntToStr(Length(Response)) + #$D#$A;
     Header += 'Connection: close'#$D#$A;
     Header += #$D#$A;
     Response := Header + Response;
-    SockClient.Send(@Response[1], Length(Response), 0);
-  end;
-  procedure SendError406;
-    var Response: String;
-  begin
-    Response := 'HTTP/1.1 406 Not Acceptable'#$D#$A;
-    Response += 'Connection: close'#$D#$A;
-    Response += #$D#$A;
-    SockClient.Send(@Response[1], Length(Response), 0);
-  end;
-  procedure SendError415;
-    var Response: String;
-  begin
-    Response := 'HTTP/1.1 415 Unsupported Media Type'#$D#$A;
-    Response += 'Connection: close'#$D#$A;
-    Response += #$D#$A;
     SockClient.Send(@Response[1], Length(Response), 0);
   end;
   procedure SendError404;
@@ -174,6 +158,31 @@ procedure TServer.TRequestHandler.Execute;
     Header += 'Connection: close'#$D#$A;
     Header += #$D#$A;
     Response := Header + Response;
+    SockClient.Send(@Response[1], Length(Response), 0);
+  end;
+  procedure SendError405;
+    var Response: String;
+  begin
+    Response := 'HTTP/1.1 405 Method Not Allowed'#$D#$A;
+    Response += 'Allow: GET'#$D#$A;
+    Response += 'Connection: close'#$D#$A;
+    Response += #$D#$A;
+    SockClient.Send(@Response[1], Length(Response), 0);
+  end;
+  procedure SendError406;
+    var Response: String;
+  begin
+    Response := 'HTTP/1.1 406 Not Acceptable'#$D#$A;
+    Response += 'Connection: close'#$D#$A;
+    Response += #$D#$A;
+    SockClient.Send(@Response[1], Length(Response), 0);
+  end;
+  procedure SendError415;
+    var Response: String;
+  begin
+    Response := 'HTTP/1.1 415 Unsupported Media Type'#$D#$A;
+    Response += 'Connection: close'#$D#$A;
+    Response += #$D#$A;
     SockClient.Send(@Response[1], Length(Response), 0);
   end;
   const BufferSize = 8 * 1024;
@@ -207,6 +216,7 @@ begin
     case r of
       200: {success};
       404: SendError404;
+      405: SendError405;
       406: SendError406;
       415: SendError415;
       else Exit;
