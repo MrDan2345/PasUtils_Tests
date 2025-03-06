@@ -22,21 +22,12 @@ end;
 
 var Client: TClient;
 
-procedure Test;
-  var Mac: TUMacAddr;
-begin
-  Mac := UNetLocalMacAddr;
-  WriteLn(UNetMacAddrToStr(Mac));
-end;
-
 procedure Run;
   var Addr: TUInAddr;
   var SockAddr, OtherSockAddr: TUSockAddr;
   var Sock, SockOther: TUSocket;
   var OtherSockAddrLen: TUSockLen;
 begin
-  Test;
-  Exit;
   WriteLn('Host Name: ', UNetHostName);
   Addr := UNetLocalAddr;
   WriteLn('Local Addr (Net): ', UNetNetAddrToStr(Addr));
