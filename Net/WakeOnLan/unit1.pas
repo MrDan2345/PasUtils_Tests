@@ -14,6 +14,7 @@ private
   var _TimeStamp: UInt64;
   var _MacAddr: TUMacAddr;
   var _Name: String;
+  var _AutoWake: Boolean;
   var _UIPanel: TPanel;
   var _UILabelName: TLabel;
   var _UILabelStaus: TLabel;
@@ -24,6 +25,7 @@ public
   property Addr: TUInAddr read _Addr;
   property MacAddr: TUMacAddr read _MacAddr;
   property Name: String read _Name;
+  property AutoWake: Boolean read _AutoWake;
   constructor Create(const AAddr: TUInAddr);
   constructor Create(const Json: TUJson);
   destructor Destroy; override;
@@ -72,6 +74,7 @@ implementation
 constructor TPeer.Create(const AAddr: TUInAddr);
 begin
   _Addr := AAddr;
+  _AutoWake := False;
   _TimeStamp := 0;
   _UIPanel := nil;
   _IdleUpdate := 0;
@@ -79,6 +82,7 @@ end;
 
 constructor TPeer.Create(const Json: TUJson);
 begin
+  _AutoWake := False;
   LoadJson(Json);
   _TimeStamp := 0;
   _UIPanel := nil;
@@ -170,9 +174,12 @@ begin
 end;
 
 procedure TPeer.UpdateUI;
+  var Cap: String;
 begin
   _IdleUpdate := GetTickCount64;
-  _UILabelName.Caption := _Name + ' ' + UNetNetAddrToStr(_Addr) + '  [' + UNetMacAddrToStr(_MacAddr) + ']';
+  Cap := _Name + ' ' + UNetNetAddrToStr(_Addr) + '  [' + UNetMacAddrToStr(_MacAddr) + ']';
+  if _AutoWake then Cap += ' (A)';
+  _UILabelName.Caption := Cap;
   if (_TimeStamp = 0) or (GetTickCount64 - _TimeStamp > 60 * 1000) then
   begin
     _UILabelStaus.Caption := '[Offline]';
@@ -188,7 +195,14 @@ end;
 procedure TPeer.IdleUpdate;
 begin
   if GetTickCount64 - _IdleUpdate <= 10 * 1000 then Exit;
-  if UNetPing(_Addr) then _TimeStamp := GetTickCount64;
+  if UNetPing(_Addr) then
+  begin
+    _TimeStamp := GetTickCount64;
+  end
+  else if _AutoWake then
+  begin
+    OnWake(Self);
+  end;
   UpdateUI;
 end;
 
@@ -197,6 +211,7 @@ begin
   _Name := Json['name'].Value;
   _Addr := UNetStrToNetAddr(Json['addr'].Value);
   _MacAddr := UNetStrToMacAddr(Json['mac'].Value);
+  _AutoWake := Json['auto_wake'].ValueAsBool;
 end;
 
 procedure TPeer.OnWake(Caller: TObject);
@@ -330,6 +345,10 @@ begin
     AddValue('name', Peers[i].Name);
     AddValue('addr', UNetNetAddrToStr(Peers[i].Addr));
     AddValue('mac', UNetMacAddrToStr(Peers[i].MacAddr));
+    if Peers[i].AutoWake then
+    begin
+      AddValue('auto_wake', True);
+    end;
   end;
   Json.Ptr.SaveToFile('peers.json');
 end;
