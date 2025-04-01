@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls, ExtCtrls,
-  NetUtils, CommonUtils;
+  ComCtrls, NetUtils, CommonUtils;
 
 type TPeer = class
 private
@@ -45,6 +45,7 @@ type TForm1 = class(TForm)
   LabelAddress1: TLabel;
   PanelList1: TPanel;
   ScrollBox1: TScrollBox;
+  StatusBar1: TStatusBar;
   Timer1: TTimer;
   procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
   procedure FormCreate(Sender: TObject);
@@ -55,6 +56,7 @@ private
   var Beacon: TUNet.TBeaconRef;
   var Peers: TPeerArray;
   var PeersToDelete: TPeerArray;
+  var StatusTime: Int64;
 public
   function FindPeer(const Addr: TUInAddr): TPeer;
   function FindOrAddPeer(const PeerInfo: TUNet.TBeacon.TPeer): TPeer;
@@ -63,6 +65,7 @@ public
   procedure DeletePeer(const Peer: TPeer);
   procedure LoadPeers;
   procedure SavePeers;
+  procedure SetStatus(const Value: String);
 end;
 
 var Form1: TForm1;
@@ -216,7 +219,14 @@ end;
 
 procedure TPeer.OnWake(Caller: TObject);
 begin
-  UNetWakeOnLan(_MacAddr);
+  if UNetWakeOnLan(_MacAddr) then
+  begin
+    Form1.SetStatus('Wake ' + _Name + '(' + UNetMacAddrToStr(_MacAddr) + ') Success');
+  end
+  else
+  begin
+    Form1.SetStatus('Wake ' + _Name + '(' + UNetMacAddrToStr(_MacAddr) + ') Failed');
+  end;
 end;
 
 procedure TPeer.OnDelete(Caller: TObject);
@@ -226,6 +236,7 @@ end;
 
 procedure TForm1.FormCreate(Sender: TObject);
 begin
+  StatusTime := GetTickCount64;
   LocalName := UNetHostName;
   LocalAddr := UNetLocalAddr;
   LocalMac := UNetLocalMacAddr;
@@ -279,6 +290,10 @@ procedure TForm1.OnTimer(Sender: TObject);
   var Peer: TPeer;
   var i, PrevCount: Int32;
 begin
+  if GetTickCount64 - StatusTime > 5000 then
+  begin
+    StatusBar1.Panels[0].Text := '';
+  end;
   PrevCount := Length(Peers);
   if Length(PeersToDelete) > 0 then
   begin
@@ -351,6 +366,12 @@ begin
     end;
   end;
   Json.Ptr.SaveToFile('peers.json');
+end;
+
+procedure TForm1.SetStatus(const Value: String);
+begin
+  StatusBar1.Panels[0].Text := Value;
+  StatusTime := GetTickCount64;
 end;
 
 end.
