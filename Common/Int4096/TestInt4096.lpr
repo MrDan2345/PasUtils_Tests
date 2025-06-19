@@ -34,6 +34,7 @@ begin
     '937798199791066531930753322433821143090810726015709045892318909912'
   );
   n := TUInt4096.MakeRandom();
+  n := TUInt4096.MakePrime(2048);
   //n := TUInt4096.Make(-39485391235234123);
   //n1 := TUInt4096.MakeRandom(256);
   //n2 := TUInt4096.MakeRandom(256);
@@ -41,17 +42,17 @@ begin
   //n2 := TUInt4096.Make('8912648746123');
   //n1 := TUInt4096.Make('79630621571658699799223702039');
   //n1 := TUInt4096.Make('796306215716586997992982374623702039');
-  n1 := TUInt4096.MakeRandom(4096);
+  //n1 := TUInt4096.MakeRandom(4095);
   //n2 := TUInt4096.Make('8912648746123');
   //n2 := TUInt4096.Make('89126019834748746123');
-  n2 := TUInt4096.MakeRandom(32);
+  //n2 := TUInt4096.MakeRandom(16);
   //n := TUInt4096.Subtraction(n1, n2);
   //n := TUInt4096.Multiplication(n1, n2);
-  n := TUInt4096.Division(n1, n2, r);
+  //n := TUInt4096.Division(n1, n2, r);
   //WriteLn(n1.ToString, ' - ', n2.ToString, ' = ', n.ToString);
   //WriteLn(n1.ToString, ' * ', n2.ToString, ' = ', n.ToString);
-  WriteLn(n1.ToString, ' / ', n2.ToString, ' = ', n.ToString, '; r = ', r.ToString); //8934562983456293
-  WriteLn(n.ToHex);
+  //WriteLn(n1.ToString, ' / ', n2.ToString, ' = ', n.ToString, '; r = ', r.ToString); //8934562983456293
+  //WriteLn(n.ToHex);
   WriteLn(n.ToString);
 end;
 
