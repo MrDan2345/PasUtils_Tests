@@ -34,43 +34,29 @@ function ModInverse(const A, N: TUInt4096): TUInt4096;
   var t, new_t, r, new_r, quotient, remainder: TUInt4096;
   var temp_t: TUInt4096;
 begin
-  // Initialize variables for the Extended Euclidean Algorithm
   t := TUInt4096.Zero;
   new_t := TUInt4096.One;
   r := N;
   new_r := A;
   while not new_r.IsZero do
   begin
-    // 1. Get quotient and remainder from the division
     quotient := TUInt4096.DivisionModular(r, new_r, remainder);
-    //DivMod(r, new_r, quotient, remainder);
-    // 2. Update r and new_r for the next iteration
     r := new_r;
-    new_r := remainder;
-    // 3. Update the coefficients t and new_t
-    // This relies on Subtract being sign-aware.
     temp_t := t;
     t := new_t;
     new_t := temp_t - (quotient * new_t);
   end;
-  // If the final remainder 'r' (the GCD) is not 1, then no inverse exists.
   if r > TUInt4096.One then Exit(TUInt4096.Zero);
-  // The final coefficient 't' might be negative. The final modulo operation
-  // will bring it into the correct positive range [0, N-1].
-  // This relies on DivMod being sign-aware.
   quotient := TUInt4096.DivisionModular(t, N, Result);
-  //DivMod(t, N, quotient, Result);
 end;
 
 function GenerateRSAKeyPair: TRSAKey;
-  var p, q, n, phi, e, d, one: TUInt4096;
-  var PrimeSize: Int32;
+  var p, q, n, phi, e, d: TUInt4096;
+  const PrimeSize = 2048;
 begin
-  PrimeSize := 2048;
   e := 65537;
   WriteLn('Generating RSA Key Pair...');
   repeat
-    // 1. Generate two large, distinct prime numbers, p and q.
     WriteLn('Generating prime p...');
     p := TUInt4096.MakePrime(PrimeSize);
     WriteLn(p.ToString);
@@ -78,36 +64,17 @@ begin
     q := TUInt4096.MakePrime(PrimeSize);
     WriteLn(q.ToString);
     if p = q then Continue;
-
-    // 2. Calculate n = p * q
     n := p * q;
-
-    // 3. Calculate phi(n) = (p-1) * (q-1)
     phi := (p - TUInt4096.One) * (q - TUInt4096.One);
-
-    // 4. Check that gcd(e, phi) = 1.
-    // Since e is prime, we just need to check that phi is not a multiple of e.
-    // The GCD check is more robust.
   until TUInt4096.GCD(e, phi) = TUInt4096.One;
-
   WriteLn('Primes found. Calculating private exponent d...');
-
-  // 5. Calculate d, the modular multiplicative inverse of e mod phi.
-  // d * e = 1 (mod phi)
   d := ModInverse(e, phi);
-
   Result.n := n;
   Result.e := e;
   Result.d := d;
   WriteLn('Key Modulus: ', n.ToString);
   WriteLn('Key Public: ', e.ToString);
   WriteLn('Key Private: ', d.ToString);
-  // 6. Assemble the key pair.
-  //Result.Public.n := n;
-  //Result.Public.e := e;
-  //Result.Private.n := n;
-  //Result.Private.d := d;
-
   WriteLn('RSA Key Pair Generation Complete.');
 end;
 
