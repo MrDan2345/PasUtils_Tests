@@ -10,6 +10,107 @@ uses
   SysUtils,
   CommonUtils;
 
+type TTestProc = procedure of Object;
+type TTestProcArr = array of TTestProc;
+
+type TDivModTester = class
+public
+  class procedure Simple;
+  class procedure ZeroRemainder;
+  class procedure Normalization;
+  class procedure MultiWord;
+  class procedure Boundary;
+  class function MakeTests: TTestProcArr;
+  class procedure DoTest;
+end;
+
+type TRSAKey = record
+  n: TUInt4096; // The modulus
+  e: TUInt4096; // The public exponent
+  d: TUInt4096; // The private exponent
+end;
+
+function ModInverse(const A, N: TUInt4096): TUInt4096;
+  var t, new_t, r, new_r, quotient, remainder: TUInt4096;
+  var temp_t: TUInt4096;
+begin
+  // Initialize variables for the Extended Euclidean Algorithm
+  t := TUInt4096.Zero;
+  new_t := TUInt4096.One;
+  r := N;
+  new_r := A;
+  while not new_r.IsZero do
+  begin
+    // 1. Get quotient and remainder from the division
+    quotient := TUInt4096.DivisionModular(r, new_r, remainder);
+    //DivMod(r, new_r, quotient, remainder);
+    // 2. Update r and new_r for the next iteration
+    r := new_r;
+    new_r := remainder;
+    // 3. Update the coefficients t and new_t
+    // This relies on Subtract being sign-aware.
+    temp_t := t;
+    t := new_t;
+    new_t := temp_t - (quotient * new_t);
+  end;
+  // If the final remainder 'r' (the GCD) is not 1, then no inverse exists.
+  if r > TUInt4096.One then Exit(TUInt4096.Zero);
+  // The final coefficient 't' might be negative. The final modulo operation
+  // will bring it into the correct positive range [0, N-1].
+  // This relies on DivMod being sign-aware.
+  quotient := TUInt4096.DivisionModular(t, N, Result);
+  //DivMod(t, N, quotient, Result);
+end;
+
+function GenerateRSAKeyPair: TRSAKey;
+  var p, q, n, phi, e, d, one: TUInt4096;
+  var PrimeSize: Int32;
+begin
+  PrimeSize := 2048;
+  e := 65537;
+  WriteLn('Generating RSA Key Pair...');
+  repeat
+    // 1. Generate two large, distinct prime numbers, p and q.
+    WriteLn('Generating prime p...');
+    p := TUInt4096.MakePrime(PrimeSize);
+    WriteLn(p.ToString);
+    WriteLn('Generating prime q...');
+    q := TUInt4096.MakePrime(PrimeSize);
+    WriteLn(q.ToString);
+    if p = q then Continue;
+
+    // 2. Calculate n = p * q
+    n := p * q;
+
+    // 3. Calculate phi(n) = (p-1) * (q-1)
+    phi := (p - TUInt4096.One) * (q - TUInt4096.One);
+
+    // 4. Check that gcd(e, phi) = 1.
+    // Since e is prime, we just need to check that phi is not a multiple of e.
+    // The GCD check is more robust.
+  until TUInt4096.GCD(e, phi) = TUInt4096.One;
+
+  WriteLn('Primes found. Calculating private exponent d...');
+
+  // 5. Calculate d, the modular multiplicative inverse of e mod phi.
+  // d * e = 1 (mod phi)
+  d := ModInverse(e, phi);
+
+  Result.n := n;
+  Result.e := e;
+  Result.d := d;
+  WriteLn('Key Modulus: ', n.ToString);
+  WriteLn('Key Public: ', e.ToString);
+  WriteLn('Key Private: ', d.ToString);
+  // 6. Assemble the key pair.
+  //Result.Public.n := n;
+  //Result.Public.e := e;
+  //Result.Private.n := n;
+  //Result.Private.d := d;
+
+  WriteLn('RSA Key Pair Generation Complete.');
+end;
+
 procedure TestMod;
   function IntPow(const Base: UInt64; const Exponent: UInt32): UInt64;
     var i: UInt32;
@@ -24,11 +125,10 @@ procedure TestMod;
   var a, b, Actual, Expected: TUInt4096;
 begin
   WriteLn('--- Testing Mod with 2^32 mod 7 ---');
-  a := TUInt4096.One shl 32;
+  a := TUInt4096.One shl 2048;
   b := 7;
   Actual := a mod b;
-  WriteLn(IntPow(2, 2));
-  Expected := IntPow(2, 64) mod 7;//4;
+  Expected := 4;//IntPow(2, 64) mod 7;//4;
   if Actual = Expected then
   begin
     WriteLn('SUCCESS: Mod works!');
@@ -42,6 +142,20 @@ begin
   end;
 end;
 
+procedure TestDiv;
+  var Dividend, Divider, Remainder, Result: TUInt4096;
+begin
+  WriteLn('--- Testing Div ---');
+  //Dividend := '$800000';
+  Dividend := TUInt4096.One shl 64;
+  Divider := 7;
+  Result := TUInt4096.Division(Dividend, Divider, Remainder);
+  WriteLn('Dividend: ', Dividend.ToHex);
+  WriteLn('Divider: ', Divider.ToString);
+  WriteLn('Result: ', Result.ToHex);
+  WriteLn('Remainder: ', Remainder.ToString);
+end;
+
 procedure TestPowMod_Simple;
 var
   Base, Exponent, Modulus, Expected, Actual: TUInt4096;
@@ -51,7 +165,7 @@ begin
   Exponent := 6;
   Modulus := 7;
   Expected := 1;
-  Actual := TUInt4096.PowMod2(Base, Exponent, Modulus);
+  Actual := TUInt4096.PowMod(Base, Exponent, Modulus);
   if Actual = Expected then
   begin
     WriteLn('SUCCESS: PowMod works for the simple test case!')
@@ -64,30 +178,35 @@ begin
   end;
 end;
 
-{
 procedure TestMontMult_Simple;
 var
-  Context: TMontgomeryReduction.TContext;
+  Context: TUInt4096Impl.TMontgomeryReduction.TContext;
   InputA, InputB, Expected, Actual: TUInt4096;
 begin
   WriteLn('--- Testing MontMult with (3*5) mod 7 ---');
-  Context := TMontgomeryReduction.InitContext(AssignInt(7));
+  // 1. Initialize the context for N=7. We know this works.
+  Context := TUInt4096.TMontgomeryReduction.InitContext(TUInt4096.Make(7));
 
-  // Use the pre-calculated Montgomery form values
-  InputA := AssignInt(5); // This is 3 in Montgomery form
-  InputB := AssignInt(6); // This is 5 in Montgomery form
-  Expected := AssignInt(4); // This is (3*5) in Montgomery form
+  // 2. Set up the inputs and expected output based on our math.
+  InputA := 5; // This is 3 in Montgomery form
+  InputB := 6; // This is 5 in Montgomery form
+  Expected := 4; // This is (3*5) in Montgomery form
 
-  // Run your MontMult function
-  Actual := TMontgomeryReduction.MontMult(Context, InputA, InputB);
+  // 3. Run your MontMult function
+  Actual := TUInt4096.TMontgomeryReduction.MontMult(Context, InputA, InputB);
 
-  // Check the result
-  if IsEqual(Actual, Expected) then
-    WriteLn('SUCCESS: MontMult works for the simple test case!')
+  // 4. Check the result
+  if Actual = Expected then
+  begin
+    WriteLn('SUCCESS: MontMult works for the simple test case!');
+  end
   else
+  begin
     WriteLn('FAIL: MontMult returned the wrong result.');
+    WriteLn('Expected: ', Expected.ToString);
+    WriteLn('Actual:   ', Actual.ToString);
+  end;
 end;
-}
 
 procedure TestShl;
   var Mask: TUInt4096;
@@ -118,11 +237,19 @@ end;
 
 procedure Run;
   var n, n1, n2, r: TUInt4096;
+  var i, j, k: Int32;
 begin
   Randomize;
+  //i := 10;
+  //j := -7;
+  //WriteLn(i div j, ':', i mod j);
+  GenerateRSAKeyPair;
   //TestShl;
   //TestPowMod_Simple;
-  TestMod;
+  //TestMontMult_Simple;
+  //TestMod;
+  //TestDiv;
+  //TDivModTester.DoTest;
   Exit;
   //n := TUInt4096.Make('$f9a3409c3b4433f');
   {n := TUInt4096.Make(
@@ -145,7 +272,7 @@ begin
     '937798199791066531930753322433821143090810726015709045892318909912'
   );}
   //n := TUInt4096.MakeRandom();
-  n := TUInt4096.MakePrime(1024);
+  n := TUInt4096.MakePrime(2048);
   //n := TUInt4096.Make(-39485391235234123);
   //n1 := TUInt4096.MakeRandom(256);
   //n2 := TUInt4096.MakeRandom(256);
@@ -165,6 +292,143 @@ begin
   //WriteLn(n1.ToString, ' / ', n2.ToString, ' = ', n.ToString, '; r = ', r.ToString); //8934562983456293
   //WriteLn(n.ToHex);
   WriteLn(n.ToString);
+end;
+
+{ TDivModTester }
+
+class procedure TDivModTester.Simple;
+  var Dividend, Divisor, Quotient, Remainder, ExpectedQ, ExpectedR: TUInt4096;
+begin
+  WriteLn('Test Simple');
+  WriteLn('--- Testing: 100 / 13 ---');
+  Dividend := 100;
+  Divisor  := 13;
+  ExpectedQ := 7;
+  ExpectedR := 9;
+  Quotient := TUInt4096.Division(Dividend, Divisor, Remainder);
+  if (Quotient = ExpectedQ) and (Remainder = ExpectedR) then
+  begin
+    WriteLn('SUCCESS');
+  end
+  else
+  begin
+    WriteLn('FAIL');
+  end;
+end;
+
+class procedure TDivModTester.ZeroRemainder;
+  var Dividend, Divisor, Quotient, Remainder, ExpectedQ, ExpectedR: TUInt4096;
+begin
+  WriteLn('Test Zero Remainder');
+  WriteLn('--- Testing: (2^64) / (2^32) ---');
+  Dividend := TUInt4096.One shl 64;
+  Divisor  := TUInt4096.One shl 32;
+  ExpectedQ := TUInt4096.One shl 32;
+  ExpectedR := TUInt4096.Zero;
+  Quotient := TUInt4096.Division(Dividend, Divisor, Remainder);
+  if (Quotient = ExpectedQ) and (Remainder = ExpectedR) then
+  begin
+    WriteLn('SUCCESS');
+  end
+  else
+  begin
+    WriteLn('FAIL');
+  end;
+end;
+
+class procedure TDivModTester.Normalization;
+var
+  Dividend, Divisor, Quotient, Remainder, ExpectedQ, ExpectedR: TUInt4096;
+begin
+  WriteLn('Test Normalization');
+  WriteLn('--- Testing: (2^65 + 1) / (2^31) ---');
+  Dividend := TUInt4096.One shl 65;
+  Dividend := Dividend + TUInt4096.One; // Assuming you have an Add function
+  Divisor  := TUInt4096.One shl 31;
+  ExpectedQ := TUInt4096.One shl 34;
+  ExpectedR := TUInt4096.One;
+  Quotient := TUInt4096.Division(Dividend, Divisor, Remainder);
+  if (Quotient = ExpectedQ) and (Remainder = ExpectedR) then
+  begin
+    WriteLn('SUCCESS');
+  end
+  else
+  begin
+    WriteLn('FAIL');
+  end;
+end;
+
+class procedure TDivModTester.MultiWord;
+  var Dividend, Divisor, Quotient, Remainder, ExpectedQ, ExpectedR: TUInt4096;
+begin
+  WriteLn('Test MultiWord');
+  WriteLn('--- Testing: (2^96 + 5) / (2^32 + 3) ---');
+  Dividend := (TUInt4096.One shl 96) + TUInt4096.Make(5);
+  Divisor  := (TUInt4096.One shl 32) + TUInt4096.Make(3);
+  ExpectedQ := TUInt4096.Zero;
+  ExpectedQ[1] := $FFFFFFFD;
+  ExpectedQ[0] := 8;
+  ExpectedR := TUInt4096.Zero;
+  ExpectedR[0] := $FFFFFFED;
+  Quotient := TUInt4096.Division(Dividend, Divisor, Remainder);
+  if (Quotient = ExpectedQ) and (Remainder = ExpectedR) then
+  begin
+    WriteLn('SUCCESS');
+  end
+  else
+  begin
+    WriteLn('FAIL');
+  end;
+end;
+
+class procedure TDivModTester.Boundary;
+  var Dividend, Divisor, Quotient, Remainder, ExpectedQ, ExpectedR: TUInt4096;
+  var i: Integer;
+begin
+  WriteLn('Test Boundary');
+  WriteLn('--- Testing: (2^4095 - 1) / (2^2048 - 1) ---');
+  // Create Dividend = 2^4095 - 1
+  Dividend := TUInt4096.One shl 4095;
+  Dividend := Dividend - TUInt4096.One;
+  // Create Divisor = 2^2048 - 1
+  Divisor := TUInt4096.One shl 2048;
+  Divisor := Divisor - TUInt4096.One;
+  // Create ExpectedQ = 2^2047
+  ExpectedQ := TUInt4096.One shl 2047;
+  // Create ExpectedR = 2^2047 - 1
+  ExpectedR := ExpectedQ - TUInt4096.One;
+  Quotient := TUInt4096.Division(Dividend, Divisor, Remainder);
+  if (Quotient = ExpectedQ) and (Remainder = ExpectedR) then
+  begin
+    WriteLn('SUCCESS');
+  end
+  else
+  begin
+    WriteLn('FAIL');
+  end;
+end;
+
+class function TDivModTester.MakeTests: TTestProcArr;
+begin
+  Result := [
+    @Simple,
+    @ZeroRemainder,
+    @Normalization,
+    @MultiWord,
+    @Boundary
+  ];
+end;
+
+class procedure TDivModTester.DoTest;
+  var i: Int32;
+  var Tests: TTestProcArr;
+begin
+  Tests := MakeTests;
+  for i := 0 to High(Tests) do
+  begin
+    Tests[i]();
+    WriteLn('');
+  end;
 end;
 
 begin
