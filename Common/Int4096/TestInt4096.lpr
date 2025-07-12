@@ -42,6 +42,7 @@ begin
   begin
     quotient := TUInt4096.DivisionModular(r, new_r, remainder);
     r := new_r;
+    new_r := remainder;
     temp_t := t;
     t := new_t;
     new_t := temp_t - (quotient * new_t);
@@ -52,7 +53,7 @@ end;
 
 function GenerateRSAKeyPair: TRSAKey;
   var p, q, n, phi, e, d: TUInt4096;
-  const PrimeSize = 2048;
+  const PrimeSize = 1024;
 begin
   e := 65537;
   WriteLn('Generating RSA Key Pair...');
