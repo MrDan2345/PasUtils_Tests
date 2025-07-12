@@ -51,18 +51,19 @@ begin
   quotient := TUInt4096.DivisionModular(t, N, Result);
 end;
 
-function GenerateRSAKeyPair: TRSAKey;
+function GenerateRSAKey(const KeySizeInBits: Int32 = 2048): TRSAKey;
   var p, q, n, phi, e, d: TUInt4096;
-  const PrimeSize = 1024;
+  var PrimeSizeInBits: Int32;
 begin
+  PrimeSizeInBits := KeySizeInBits shr 1;
   e := 65537;
   WriteLn('Generating RSA Key Pair...');
   repeat
     WriteLn('Generating prime p...');
-    p := TUInt4096.MakePrime(PrimeSize);
+    p := TUInt4096.MakePrime(PrimeSizeInBits);
     WriteLn(p.ToString);
     WriteLn('Generating prime q...');
-    q := TUInt4096.MakePrime(PrimeSize);
+    q := TUInt4096.MakePrime(PrimeSizeInBits);
     WriteLn(q.ToString);
     if p = q then Continue;
     n := p * q;
@@ -203,15 +204,115 @@ begin
   end;
 end;
 
+function PackBlock(const Data: TUInt8Array): TUInt4096;
+  const BlockSize = 256;
+  const MinPadding = 11;
+  var PaddingSize: Int32;
+  var PaddedData: array[0..BlockSize - 1] of UInt8 absolute Result;
+  var i: Int32;
+begin
+  if Length(Data) > BlockSize - MinPadding then Exit(TUInt4096.Invalid);
+  Result := TUInt4096.Zero;
+  PaddingSize := BlockSize - Length(Data);
+  PaddedData[0] := $00;
+  PaddedData[1] := $02;
+  for i := 2 to PaddingSize - 2 do
+  repeat
+    PaddedData[i] := UInt8(Random(256));
+  until PaddedData[i] > 0;
+  PaddedData[PaddingSize - 1] := 0;
+  for i := 0 to High(Data) do
+  begin
+    PaddedData[PaddingSize + i] := Data[i];
+  end;
+end;
+
+function UnpackBlock(const Block: TUInt4096): TUInt8Array;
+  const BlockSize = 256;
+  var PaddingSize: Int32;
+  var PaddedData: array[0..BlockSize - 1] of UInt8 absolute Block;
+  var i: Int32;
+begin
+  if (PaddedData[0] <> 0) or (PaddedData[1] <> 2) then Exit(nil);
+  PaddingSize := 0;
+  for i := 2 to High(PaddedData) do
+  begin
+    if PaddedData[i] <> 0 then Continue;
+    PaddingSize := i + 1;
+    Break;
+  end;
+  if PaddingSize = 0 then Exit(nil);
+  Result := nil;
+  SetLength(Result, BlockSize - PaddingSize);
+  for i := 0 to High(Result) do
+  begin
+    Result[i] := PaddedData[PaddingSize + i];
+  end;
+end;
+
+function StrToBlock(const Str: String): TUInt4096;
+  var Data: TUInt8Array;
+begin
+  SetLength(Data, Length(Str));
+  Move(Str[1], Data[0], Length(Str));
+  Result := PackBlock(Data);
+end;
+
+function BlockToStr(const Block: TUInt4096): String;
+  var Data: TUInt8Array;
+begin
+  Data := UnpackBlock(Block);
+  SetLength(Result, Length(Data));
+  Move(Data[0], Result[1], Length(Result));
+end;
+
+function Encrypt(const Data: TUInt8Array; const Key: TRSAKey): TUInt4096;
+  var Block: TUInt4096;
+begin
+  Block := PackBlock(Data);
+  if not Block.IsValid then Exit(TUInt4096.Invalid);
+  Result := TUInt4096.PowMod(Block, Key.e, Key.n);
+end;
+
+function Decrypt(const Cipher: TUInt4096; const Key: TRSAKey): TUInt8Array;
+  var Block: TUInt4096;
+begin
+  Block := TUInt4096.PowMod(Cipher, Key.d, Key.n);
+  Result := UnpackBlock(Block);
+end;
+
+function EncryptStr(const Str: String; const Key: TRSAKey): TUInt4096;
+  var Block: TUInt4096;
+begin
+  Block := StrToBlock(Str);
+  if not Block.IsValid then Exit(TUInt4096.Invalid);
+  Result := TUInt4096.PowMod(Block, Key.e, Key.n);
+end;
+
+function DecryptStr(const Cipher: TUInt4096; const Key: TRSAKey): String;
+  var Block: TUInt4096;
+begin
+  Block := TUInt4096.PowMod(Cipher, Key.d, Key.n);
+  Result := BlockToStr(Block);
+end;
+
 procedure Run;
   var n, n1, n2, r: TUInt4096;
   var i, j, k: Int32;
+  var s: String;
+  var Key: TRSAKey;
 begin
   Randomize;
+  Key := GenerateRSAKey;
+  n := EncryptStr('Hello World!', Key);
+  WriteLn(n.ToString);
+  s := DecryptStr(n, Key);
+  WriteLn(s);
+  Exit;
   //i := 10;
   //j := -7;
   //WriteLn(i div j, ':', i mod j);
-  GenerateRSAKeyPair;
+  //GenerateRSAKey;
   //TestShl;
   //TestPowMod_Simple;
   //TestMontMult_Simple;
