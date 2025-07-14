@@ -89,7 +89,7 @@ begin
   new_r := A;
   while not new_r.IsZero do
   begin
-    quotient := TUInt4096.DivisionModular(r, new_r, remainder);
+    quotient := TUInt4096.Division(r, new_r, remainder);
     r := new_r;
     new_r := remainder;
     temp_t := t;
@@ -97,7 +97,7 @@ begin
     new_t := temp_t - (quotient * new_t);
   end;
   if r > TUInt4096.One then Exit(TUInt4096.Zero);
-  quotient := TUInt4096.DivisionModular(t, N, Result);
+  quotient := TUInt4096.Division(t, N, Result);
 end;
 
 // A reference version of ModInverse that uses the slow, trusted division.
@@ -174,7 +174,7 @@ begin
   WriteLn('--- Fast Quotients ---');
   while not (new_r.IsZero) do
   begin
-    quotient := TUInt4096.DivisionModular(r, new_r, remainder); // Your fast DivMod
+    quotient := TUInt4096.Division(r, new_r, remainder); // Your fast DivMod
     WriteLn('  Fast Q: ', quotient.ToString, '; R: ', remainder.ToString); // Print quotient
     r := new_r;
     new_r := remainder;
@@ -183,7 +183,7 @@ begin
     new_t := TUInt4096.Subtraction(temp_t, TUInt4096.Multiplication(quotient, new_t));
   end;
   if TUInt4096.Compare(r, TUInt4096.One) > 0 then Exit(TUInt4096.Zero);
-  quotient := TUInt4096.DivisionModular(t, N, Result);
+  quotient := TUInt4096.Division(t, N, Result);
 end;
 
 function VerifyKeyPair(const d, e, phi: TUInt4096): Boolean;
@@ -191,7 +191,7 @@ function VerifyKeyPair(const d, e, phi: TUInt4096): Boolean;
 begin
   // Calculate (d * e) mod phi
   d_e := d * e;
-  TUInt4096.DivisionModular(d_e, phi, check);// check mod phi;
+  check := d_e mod phi;// check mod phi;
   Result := TUInt4096.Compare(check, TUInt4096.One) = 0;
 end;
 
@@ -315,7 +315,7 @@ begin
   WriteLn('--- Testing Mod with 2^32 mod 7 ---');
   a := TUInt4096.One shl 2048;
   b := 7;
-  TUInt4096.DivisionModular(a, b, Actual);
+  Actual := a mod b;
   //Actual := a mod b;
   Expected := 4;//IntPow(2, 64) mod 7;//4;
   if Actual = Expected then
@@ -578,7 +578,7 @@ begin
   // --- STEP 2: Test the Modulo ---
   WriteLn('Testing Modulo...');
   // Your fast version
-  dummy_q := TUInt4096.DivisionModular(temp_fast, phi, check_fast);
+  dummy_q := TUInt4096.Division(temp_fast, phi, check_fast);
 
   // The trusted reference version
   DivMod_Reference(temp_fast, phi, dummy_q, check_ref);
@@ -735,7 +735,7 @@ begin
   Divisor  := 13;
   ExpectedQ := 7;
   ExpectedR := 9;
-  Quotient := TUInt4096.DivisionModular(Dividend, Divisor, Remainder);
+  Quotient := TUInt4096.Division(Dividend, Divisor, Remainder);
   if (Quotient = ExpectedQ) and (Remainder = ExpectedR) then
   begin
     WriteLn('SUCCESS');
