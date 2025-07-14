@@ -30,6 +30,55 @@ type TRSAKey = record
   d: TUInt4096; // The private exponent
 end;
 
+procedure DivMod_Reference(const Dividend, Divisor: TUInt4096; var Quotient, Remainder: TUInt4096);
+var
+  CurrentDividend: TUInt4096;
+  i: Integer;
+  one: TUInt4096;
+begin
+  Quotient := TUInt4096.Zero;
+  CurrentDividend := TUInt4096.Zero;
+  one := TUInt4096.One;
+  for i := (Dividend.Top * 32 + 31) downto 0 do
+  begin
+    // Shift the current dividend left by 1
+    CurrentDividend := TUInt4096.ShiftLeft(CurrentDividend, 1);
+    // Bring down the next bit from the original dividend
+    if (TUInt4096.ShiftLeft(one, i) and Dividend) > TUInt4096.Zero then
+    begin
+      CurrentDividend[0] := CurrentDividend[0] or 1;
+    end;
+    // If the current dividend is >= the divisor, subtract and set quotient bit
+    if TUInt4096.Compare(CurrentDividend, Divisor) >= 0 then
+    begin
+      CurrentDividend := TUInt4096.Subtraction(CurrentDividend, Divisor);
+      Quotient := Quotient or TUInt4096.ShiftLeft(one, i);
+    end;
+  end;
+  Remainder := CurrentDividend;
+end;
+
+function Multiply_Reference(const a, b: TUInt4096): TUInt4096;
+  var LocalA, LocalB: TUInt4096;
+begin
+  Result := TUInt4096.Zero;
+  LocalA := a;
+  LocalB := b;
+  while not LocalB.IsZero do
+  begin
+    // If b is odd, add a to the result
+    if LocalB.IsOdd then
+    begin
+      Result := TUInt4096.Addition(Result, LocalA);
+    end;
+    // Double a
+    LocalA := TUInt4096.ShiftLeft(LocalA, 1);
+    // Halve b
+    LocalB := TUInt4096.ShiftRight(LocalB, 1);
+  end;
+  Result.SetNegative(a.IsNegative xor b.IsNegative);
+end;
+
 function ModInverse(const A, N: TUInt4096): TUInt4096;
   var t, new_t, r, new_r, quotient, remainder: TUInt4096;
   var temp_t: TUInt4096;
@@ -51,26 +100,180 @@ begin
   quotient := TUInt4096.DivisionModular(t, N, Result);
 end;
 
+// A reference version of ModInverse that uses the slow, trusted division.
+function ModInverse_Reference(const A, N: TUInt4096): TUInt4096;
+  var t, new_t, r, new_r, quotient, remainder: TUInt4096;
+  var temp_t, prod: TUInt4096;
+  var i: Int32;
+begin
+  t := TUInt4096.Zero;
+  new_t := TUInt4096.One;
+  r := N;
+  new_r := A;
+  WriteLn('--- Reference Quotients ---');
+  while not (new_r.IsZero) do
+  begin
+    DivMod_Reference(r, new_r, quotient, remainder);
+    //WriteLn('DivMod ', r.ToString, ' ', new_r.ToString, ' ', quotient.ToString, ' ', remainder.ToString);
+    //WriteLn('  Ref Q: ', quotient.ToString, '; R: ', remainder.ToString); // Print quotient
+    r := new_r;
+    new_r := remainder;
+    temp_t := t;
+    t := new_t;
+    prod := Multiply_Reference(quotient, new_t);
+    WriteLn('Mul ', quotient.ToString, ' ', new_t.ToString, ' ', prod.ToString);
+    new_t := TUInt4096.Subtraction(temp_t, prod);
+    //WriteLn('Sub ', r.ToString, ' ', new_r.ToString, ' ', quotient.ToString, ' ', remainder.ToString);
+  end;
+  if TUInt4096.Compare(r, TUInt4096.One) > 0 then Exit(TUInt4096.Zero);
+  DivMod_Reference(t, N, quotient, Result);
+end;
+
+function ModInverse2(const e, phi: TUInt4096): TUInt4096;
+  function gcd(const a, b: TUInt4096; var x: TUInt4096; var y: TUInt4096): TUInt4096;
+    var x1, y1, gcd_val: TUInt4096;
+  begin
+    if a = TUInt4096.Zero then
+    begin
+      x := TUInt4096.Zero;
+      y := TUInt4096.One;
+      Exit(b);
+    end;
+    x1 := TUInt4096.Zero;
+    y1 := TUInt4096.Zero;
+    gcd_val := gcd(b mod a, a, x1, y1);
+    x := y1 - (b div a) * x1;
+    y := x1;
+    Result := gcd_val;
+  end;
+  var x, y, gcd_val: TUInt4096;
+begin
+  x := TUInt4096.Zero;
+  y := TUInt4096.Zero;
+  gcd_val := gcd(e, phi, x, y);
+  if gcd_val <> TUInt4096.One then
+  begin
+    Exit(TUInt4096.Invalid);
+  end;
+  if x < TUInt4096.Zero then
+  begin
+    x := x + phi;
+  end;
+  Result := x;
+end;
+
+// A version of your ModInverse that prints its quotients for comparison.
+function ModInverse_Fast_WithDebug(const A, N: TUInt4096): TUInt4096;
+  var t, new_t, r, new_r, quotient, remainder: TUInt4096;
+  var temp_t: TUInt4096;
+begin
+  t := TUInt4096.Zero;
+  new_t := TUInt4096.One;
+  r := N;
+  new_r := A;
+  WriteLn('--- Fast Quotients ---');
+  while not (new_r.IsZero) do
+  begin
+    quotient := TUInt4096.DivisionModular(r, new_r, remainder); // Your fast DivMod
+    WriteLn('  Fast Q: ', quotient.ToString, '; R: ', remainder.ToString); // Print quotient
+    r := new_r;
+    new_r := remainder;
+    temp_t := t;
+    t := new_t;
+    new_t := TUInt4096.Subtraction(temp_t, TUInt4096.Multiplication(quotient, new_t));
+  end;
+  if TUInt4096.Compare(r, TUInt4096.One) > 0 then Exit(TUInt4096.Zero);
+  quotient := TUInt4096.DivisionModular(t, N, Result);
+end;
+
+function VerifyKeyPair(const d, e, phi: TUInt4096): Boolean;
+  var d_e, check: TUInt4096;
+begin
+  // Calculate (d * e) mod phi
+  d_e := d * e;
+  TUInt4096.DivisionModular(d_e, phi, check);// check mod phi;
+  Result := TUInt4096.Compare(check, TUInt4096.One) = 0;
+end;
+
 function GenerateRSAKey(const KeySizeInBits: Int32 = 2048): TRSAKey;
-  var p, q, n, phi, e, d: TUInt4096;
+  var p, q, n, phi, phi_test, e, d, test_n, p_min_1, q_min_1, p_min_1_test, q_min_1_test: TUInt4096;
   var PrimeSizeInBits: Int32;
+  var IsKeyValid: Boolean;
 begin
   PrimeSizeInBits := KeySizeInBits shr 1;
   e := 65537;
   WriteLn('Generating RSA Key Pair...');
+  IsKeyValid := False;
   repeat
-    WriteLn('Generating prime p...');
-    p := TUInt4096.MakePrime(PrimeSizeInBits);
-    WriteLn(p.ToString);
-    WriteLn('Generating prime q...');
-    q := TUInt4096.MakePrime(PrimeSizeInBits);
-    WriteLn(q.ToString);
-    if p = q then Continue;
-    n := p * q;
-    phi := (p - TUInt4096.One) * (q - TUInt4096.One);
-  until TUInt4096.GCD(e, phi) = TUInt4096.One;
-  WriteLn('Primes found. Calculating private exponent d...');
-  d := ModInverse(e, phi);
+    repeat
+      WriteLn('Generating prime p...');
+      p := TUInt4096.MakePrime(PrimeSizeInBits);
+      //p := '90382099633927408949568785463586054952142834624445251623288095609611016768219411333537389178145143450387852210769990218700330811847585011060673764606881801376567727990096387434077512196441872418045680023804065905929228854720360338660469402853809932678152144289496776610253459060449467689793626996923806670363';
+      WriteLn(p.ToString);
+      WriteLn('Generating prime q...');
+      q := TUInt4096.MakePrime(PrimeSizeInBits);
+      //q := '105985773170443866860819656797185778690784978271262571811743419344359058013545821935233836842049632863832031309415574359841271266239653153294916058029909703725420707498060002779155798668464771073302245038158220861914717093568858369920259151475759819817591423325646504713070790995329876121813729903323454753711';
+      WriteLn(q.ToString);
+      if p = q then Continue;
+      n := TUInt4096.Multiplication(p, q);
+      //n := Multiply_Reference(p, q);
+      WriteLn('Modulus:');
+      WriteLn(n.ToString);
+      test_n := '9579216710469888020013626076243276790781202445636401798936690617498346456563861300120676016669143862068011213481767206376391994431400411641936892471993063559808302879160490942405249760243933007325297038561324554359677714054049082667310933299060466593424566224497283691914262896032483857395680592507072883074197927623007462418542535972633213568987024313874236835319519069224112303083383336553397701919691128299556705720461511537243810245376100151028780304983824770214578098726229472661391284895658962039348908230014325772300957345767789379422938968393169625383690058332502615768644276946512370895627405983843127967093';
+      if test_n = n then
+      begin
+        WriteLn('Modulus match');
+      end
+      else
+      begin
+        WriteLn('Modulus mismatch');
+      end;
+      p_min_1 := TUInt4096.Subtraction(p, TUInt4096.One);
+      p_min_1_test := '90382099633927408949568785463586054952142834624445251623288095609611016768219411333537389178145143450387852210769990218700330811847585011060673764606881801376567727990096387434077512196441872418045680023804065905929228854720360338660469402853809932678152144289496776610253459060449467689793626996923806670362';
+      if p_min_1_test = p_min_1 then
+      begin
+        WriteLn('p - 1 match');
+      end
+      else
+      begin
+        WriteLn('p - 1 mismatch');
+      end;
+      q_min_1 := TUInt4096.Subtraction(q, TUInt4096.One);
+      q_min_1_test := '105985773170443866860819656797185778690784978271262571811743419344359058013545821935233836842049632863832031309415574359841271266239653153294916058029909703725420707498060002779155798668464771073302245038158220861914717093568858369920259151475759819817591423325646504713070790995329876121813729903323454753710';
+      if q_min_1_test = q_min_1 then
+      begin
+        WriteLn('q - 1 match');
+      end
+      else
+      begin
+        WriteLn('q - 1 mismatch');
+      end;
+      phi := Multiply_Reference(p_min_1, q_min_1);
+      phi_test := '9579216710469888020013626076243276790781202445636401798936690617498346456563861300120676016669143862068011213481767206376391994431400411641936892471993063559808302879160490942405249760243933007325297038561324554359677714054049082667310933299060466593424566224497283691914262896032483857395680592507072883074001559750203091142732147530372441735344096500978529011884487554270142228301618103284626475899496351985336822200275946958702208167288861986673190482347033265112589663238073082448157974030752318548000983168052039004457011397478570670842210414063599872887946490717359334445320026890733027084020049083595866543020';
+      if phi_test = phi then
+      begin
+        WriteLn('phi match');
+      end
+      else
+      begin
+        WriteLn('phi mismatch');
+      end;
+      WriteLn('Phi:');
+      WriteLn(phi.ToString);
+    until TUInt4096.GCD(e, phi) = TUInt4096.One;
+    WriteLn('Primes found. Calculating private exponent d...');
+    d := ModInverse2(e, phi);//ModInverse_Reference(e, phi);
+    IsKeyValid := VerifyKeyPair(d, e, phi);
+    if not IsKeyValid then
+    begin
+      WriteLn('!!! FAILED KEY VERIFICATION !!!');
+      WriteLn('ModInverse produced an incorrect result for phi:');
+      // Print the phi that caused the failure.
+      // You would use your BigNumToString function here.
+      WriteLn('phi = ', phi.ToString);
+      Continue; // Try again with a new p and q
+    end;
+  until IsKeyValid;
   Result.n := n;
   Result.e := e;
   Result.d := d;
@@ -78,6 +281,22 @@ begin
   WriteLn('Key Public: ', e.ToString);
   WriteLn('Key Private: ', d.ToString);
   WriteLn('RSA Key Pair Generation Complete.');
+end;
+
+procedure TestModInverse;
+  var d, e, phi: TUInt4096;
+begin
+  e := 65537;
+  phi := '18405040002732956912924006895823546571601767193002177106151131523982799323668173299271430457366649445437296021126139106824963650547431034261222369585730432641952115042625168358902412650562294411661145143145371835374013901191324550835314973801839894312973361486957082294169589750181678171485968476347838973141815597189491442301035398402631981039065811172023583441414639943487946402203151344827969370590453234666203047234151408390211263016101186945733813554241968543372355585601894220708355244634313311019083756261660458464172252085631531220117354116535509502035516115589353190516893117330385008135054683759643996604544';
+  d := ModInverse(e, phi);
+  if VerifyKeyPair(d, e, phi) then
+  begin
+    WriteLn('ModInverse Successful');
+  end
+  else
+  begin
+    WriteLn('ModInverse Failed');
+  end;
 end;
 
 procedure TestMod;
@@ -96,7 +315,8 @@ begin
   WriteLn('--- Testing Mod with 2^32 mod 7 ---');
   a := TUInt4096.One shl 2048;
   b := 7;
-  Actual := a mod b;
+  TUInt4096.DivisionModular(a, b, Actual);
+  //Actual := a mod b;
   Expected := 4;//IntPow(2, 64) mod 7;//4;
   if Actual = Expected then
   begin
@@ -177,6 +397,23 @@ begin
   end;
 end;
 
+procedure TestMultiplication;
+  var i, err: Int32;
+  var a, b, r0, r1: TUInt4096;
+begin
+  err := 0;
+  for i := 0 to 999 do
+  begin
+    a := TUInt4096.MakeRandom(2048);
+    b := TUInt4096.MakeRandom(2048);
+    r0 := TUInt4096.Multiplication(a, b);
+    r1 := Multiply_Reference(a, b);
+    if r0 = r1 then Continue;
+    Inc(err);
+  end;
+  WriteLn('Multiplication Errors: ', err);
+end;
+
 procedure TestShl;
   var Mask: TUInt4096;
   var i: Int32;
@@ -206,6 +443,7 @@ end;
 
 function PackBlock(const Data: TUInt8Array): TUInt4096;
   const BlockSize = 256;
+  //const BlockSize = 128;
   const MinPadding = 11;
   var PaddingSize: Int32;
   var PaddedData: array[0..BlockSize - 1] of UInt8 absolute Result;
@@ -229,6 +467,7 @@ end;
 
 function UnpackBlock(const Block: TUInt4096): TUInt8Array;
   const BlockSize = 256;
+  //const BlockSize = 128;
   var PaddingSize: Int32;
   var PaddedData: array[0..BlockSize - 1] of UInt8 absolute Block;
   var i: Int32;
@@ -296,6 +535,124 @@ begin
   Result := BlockToStr(Block);
 end;
 
+procedure TestVerificationFailure;
+var
+  // --- PASTE THE FAILING VALUES HERE ---
+  // You will get these from the output of your key generation loop
+  phi, d, e, one: TUInt4096;
+
+  // --- Variables for the test ---
+  temp_fast, check_fast: TUInt4096;
+  temp_ref, check_ref, dummy_q: TUInt4096;
+begin
+  WriteLn('--- Testing the Failing Verification Step ---');
+
+  // Initialize the known failing numbers and constants
+  e := 65537;
+  one := TUInt4096.One;
+
+  // Example failing phi from your output (replace with a new one if needed)
+  phi := '94592757808584081709006454738865617093549070117015920124141068278231457657804858549566844415331841551904698205757807164772525224195932245751432883005579293303325894980116127256455427035577122316562356318798206615011112800197909701242613779706486930438919912060943758600975036862046675515916255316905103752172';
+
+  // Calculate 'd' using the trusted reference ModInverse to be sure it's correct
+  d := ModInverse_Reference(e, phi); // Assuming you have this from the previous debug step
+
+  WriteLn('Testing with known correct d: ', d.ToString);
+  WriteLn;
+
+  // --- STEP 1: Test the Multiplication ---
+  WriteLn('Testing Multiplication...');
+  temp_fast := TUInt4096.Multiplication(d, e);
+  temp_ref := Multiply_Reference(d, e);
+  if temp_fast = temp_ref then
+  begin
+    WriteLn('Multiplication check passed!');
+  end
+  else
+  begin
+    WriteLn('Multiplication check failed!');
+    WriteLn('Fast: ', temp_fast.ToString);
+    WriteLn('Reference: ', temp_ref.ToString);
+  end;
+
+  // --- STEP 2: Test the Modulo ---
+  WriteLn('Testing Modulo...');
+  // Your fast version
+  dummy_q := TUInt4096.DivisionModular(temp_fast, phi, check_fast);
+
+  // The trusted reference version
+  DivMod_Reference(temp_fast, phi, dummy_q, check_ref);
+
+  WriteLn('Fast Check Result:      ', check_fast.ToString);
+  WriteLn('Reference Check Result: ', check_ref.ToString);
+
+  if (check_fast = one) and (check_ref = one) then
+  begin
+     WriteLn('CONCLUSION: Both checks passed. The error is somewhere else (highly unlikely).');
+  end
+  else if (check_fast = check_ref) then
+  begin
+     WriteLn('CONCLUSION: Both checks failed identically. The error is in the logic of ModInverse, not DivMod.');
+  end
+  else
+  begin
+     WriteLn('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+     WriteLn('!!! BUG FOUND: The results differ. The bug is in your fast DivMod.');
+     WriteLn('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+  end;
+end;
+
+procedure FindFailingDivisionCase;
+var
+  p, q, n, phi, e, d, one: TUInt4096;
+  KeyPair: TRSAKey;
+  IsKeyValid: Boolean;
+begin
+  e := 65537;
+  // Loop until we find a key pair that FAILS verification
+  while True do
+  begin
+    WriteLn('Generating new p and q...');
+    p := TUInt4096.MakePrime(512); // Use 512-bit primes to find the bug faster
+    q := TUInt4096.MakePrime(512);
+    if p = q then Continue;
+    phi := TUInt4096.Multiplication(
+      TUInt4096.Subtraction(p, TUInt4096.One),
+      TUInt4096.Subtraction(q, TUInt4096.One)
+    );
+    if not (TUInt4096.GCD(e, phi) = TUInt4096.One) then Continue;
+    // Calculate d using your normal ModInverse
+    d := ModInverse(e, phi);
+    // Verify the key
+    IsKeyValid := VerifyKeyPair(d, e, phi);
+    if not IsKeyValid then
+    begin
+      // We found a failure! Now we analyze it.
+      WriteLn;
+      WriteLn('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+      WriteLn('!!! FAILED KEY VERIFICATION. ANALYZING...');
+      WriteLn('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+      WriteLn('Failing Phi: ', phi.ToString);
+      WriteLn;
+
+      // Now, run both versions of ModInverse and compare their quotients
+      d := ModInverse_Fast_WithDebug(e, phi);
+      d := ModInverse_Reference(e, phi);
+
+      WriteLn;
+      WriteLn('Compare the "Fast Q" and "Ref Q" lists above.');
+      WriteLn('The first place they differ reveals the bug.');
+      WriteLn('The inputs to DivMod that caused the difference are the');
+      WriteLn('values of r and new_r from the *previous* successful iteration.');
+      Break; // Exit the loop now that we have our analysis
+    end
+    else
+    begin
+      WriteLn('Key was valid. Trying again...');
+    end;
+  end;
+end;
+
 procedure Run;
   var n, n1, n2, r: TUInt4096;
   var i, j, k: Int32;
@@ -303,7 +660,11 @@ procedure Run;
   var Key: TRSAKey;
 begin
   Randomize;
-  Key := GenerateRSAKey;
+  //TestMultiplication;
+  //TestVerificationFailure;
+  //FindFailingDivisionCase;
+  //Exit;
+  Key := GenerateRSAKey(2048);
   n := EncryptStr('Hello World!', Key);
   WriteLn(n.ToString);
   s := DecryptStr(n, Key);
@@ -374,7 +735,7 @@ begin
   Divisor  := 13;
   ExpectedQ := 7;
   ExpectedR := 9;
-  Quotient := TUInt4096.Division(Dividend, Divisor, Remainder);
+  Quotient := TUInt4096.DivisionModular(Dividend, Divisor, Remainder);
   if (Quotient = ExpectedQ) and (Remainder = ExpectedR) then
   begin
     WriteLn('SUCCESS');
