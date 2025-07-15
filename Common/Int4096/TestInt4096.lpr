@@ -8,7 +8,8 @@ uses
   {$ENDIF}
   Classes,
   SysUtils,
-  CommonUtils;
+  CommonUtils,
+  CryptoUtils;
 
 type TTestProc = procedure of Object;
 type TTestProcArr = array of TTestProc;
@@ -128,7 +129,7 @@ begin
   if TUInt4096.Compare(r, TUInt4096.One) > 0 then Exit(TUInt4096.Zero);
   DivMod_Reference(t, N, quotient, Result);
 end;
-
+{
 function ModInverse2(const e, phi: TUInt4096): TUInt4096;
   function gcd(const a, b: TUInt4096; var x: TUInt4096; var y: TUInt4096): TUInt4096;
     var x1, y1, gcd_val: TUInt4096;
@@ -161,7 +162,7 @@ begin
   end;
   Result := x;
 end;
-
+}
 // A version of your ModInverse that prints its quotients for comparison.
 function ModInverse_Fast_WithDebug(const A, N: TUInt4096): TUInt4096;
   var t, new_t, r, new_r, quotient, remainder: TUInt4096;
@@ -260,9 +261,9 @@ begin
       end;
       WriteLn('Phi:');
       WriteLn(phi.ToString);
-    until TUInt4096.GCD(e, phi) = TUInt4096.One;
+    until UGCD(e, phi) = TUInt4096.One;
     WriteLn('Primes found. Calculating private exponent d...');
-    d := ModInverse2(e, phi);//ModInverse_Reference(e, phi);
+    d := UModInverse(e, phi);//ModInverse_Reference(e, phi);
     IsKeyValid := VerifyKeyPair(d, e, phi);
     if not IsKeyValid then
     begin
@@ -285,40 +286,23 @@ function GenerateRSAKey(const KeySizeInBits: Int32 = 2048): TRSAKey;
   var p, q, n, phi, phi_test, e, d, test_n, p_min_1, q_min_1, p_min_1_test, q_min_1_test: TUInt4096;
   var PrimeSizeInBits: Int32;
   var IsKeyValid: Boolean;
+  var Primes: TUInt4096Array;
 begin
   PrimeSizeInBits := KeySizeInBits shr 1;
   e := 65537;
   WriteLn('Generating RSA Key Pair...');
-  IsKeyValid := False;
   repeat
-    repeat
-      WriteLn('Generating prime p...');
-      p := TUInt4096.MakePrime(PrimeSizeInBits);
-      //WriteLn(p.ToString);
-      WriteLn('Generating prime q...');
-      q := TUInt4096.MakePrime(PrimeSizeInBits);
-      //WriteLn(q.ToString);
-      if p = q then Continue;
-      n := TUInt4096.Multiplication(p, q);
-      //WriteLn('Modulus:');
-      //WriteLn(n.ToString);
-      p_min_1 := TUInt4096.Subtraction(p, TUInt4096.One);
-      q_min_1 := TUInt4096.Subtraction(q, TUInt4096.One);
-      phi := TUInt4096.Multiplication(p_min_1, q_min_1);
-      //WriteLn('Phi:');
-      //WriteLn(phi.ToString);
-    until TUInt4096.GCD(e, phi) = TUInt4096.One;
-    WriteLn('Primes found. Calculating private exponent d...');
-    d := ModInverse2(e, phi);//ModInverse_Reference(e, phi);
-    IsKeyValid := VerifyKeyPair(d, e, phi);
-    if not IsKeyValid then
-    begin
-      WriteLn('!!! FAILED KEY VERIFICATION !!!');
-      WriteLn('ModInverse produced an incorrect result for phi:');
-      WriteLn('phi = ', phi.ToString);
-      Continue;
-    end;
-  until IsKeyValid;
+    WriteLn('Generating primes');
+    Primes := UMakePrimes(2, PrimeSizeInBits, 32);
+    if Length(Primes) < 2 then Continue;
+    p := Primes[0];
+    q := Primes[1];
+    if p = q then Continue;
+    n := p * q;
+    phi := (p - TUInt4096.One) * (q - TUInt4096.One);
+  until UGCD(e, phi) = TUInt4096.One;
+  WriteLn('Primes found. Calculating private exponent d...');
+  d := UModInverse(e, phi);
   Result.n := n;
   Result.e := e;
   Result.d := d;
@@ -555,13 +539,13 @@ function Encrypt(const Data: TUInt8Array; const Key: TRSAKey): TUInt4096;
 begin
   Block := PackBlock(Data);
   if not Block.IsValid then Exit(TUInt4096.Invalid);
-  Result := TUInt4096.PowMod(Block, Key.e, Key.n);
+  Result := UPowMod(Block, Key.e, Key.n);
 end;
 
 function Decrypt(const Cipher: TUInt4096; const Key: TRSAKey): TUInt8Array;
   var Block: TUInt4096;
 begin
-  Block := TUInt4096.PowMod(Cipher, Key.d, Key.n);
+  Block := UPowMod(Cipher, Key.d, Key.n);
   Result := UnpackBlock(Block);
 end;
 
@@ -570,13 +554,13 @@ function EncryptStr(const Str: String; const Key: TRSAKey): TUInt4096;
 begin
   Block := StrToBlock(Str);
   if not Block.IsValid then Exit(TUInt4096.Invalid);
-  Result := TUInt4096.PowMod(Block, Key.e, Key.n);
+  Result := UPowMod(Block, Key.e, Key.n);
 end;
 
 function DecryptStr(const Cipher: TUInt4096; const Key: TRSAKey): String;
   var Block: TUInt4096;
 begin
-  Block := TUInt4096.PowMod(Cipher, Key.d, Key.n);
+  Block := UPowMod(Cipher, Key.d, Key.n);
   Result := BlockToStr(Block);
 end;
 
@@ -665,7 +649,7 @@ begin
       TUInt4096.Subtraction(p, TUInt4096.One),
       TUInt4096.Subtraction(q, TUInt4096.One)
     );
-    if not (TUInt4096.GCD(e, phi) = TUInt4096.One) then Continue;
+    if not (UGCD(e, phi) = TUInt4096.One) then Continue;
     // Calculate d using your normal ModInverse
     d := ModInverse(e, phi);
     // Verify the key
@@ -702,17 +686,18 @@ procedure Run;
   var n, n1, n2, r: TUInt4096;
   var i, j, k: Int32;
   var s: String;
-  var Key: TRSAKey;
+  var Key: TURSAKey;
 begin
   Randomize;
   //TestMultiplication;
   //TestVerificationFailure;
   //FindFailingDivisionCase;
   //Exit;
-  Key := GenerateRSAKey(2048);
-  n := EncryptStr('Hello World!', Key);
+  WriteLn('Generating Key...');
+  Key := UMakeRSAKey(2048);
+  n := UEncryptStr('Hello World!', Key, 2048);
   WriteLn(n.ToString);
-  s := DecryptStr(n, Key);
+  s := UDecryptStr(n, Key, 2048);
   WriteLn(s);
   ReadLn;
   Exit;
