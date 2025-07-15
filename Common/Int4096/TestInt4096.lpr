@@ -195,7 +195,7 @@ begin
   Result := TUInt4096.Compare(check, TUInt4096.One) = 0;
 end;
 
-function GenerateRSAKey(const KeySizeInBits: Int32 = 2048): TRSAKey;
+function GenerateRSAKey_Debug(const KeySizeInBits: Int32 = 2048): TRSAKey;
   var p, q, n, phi, phi_test, e, d, test_n, p_min_1, q_min_1, p_min_1_test, q_min_1_test: TUInt4096;
   var PrimeSizeInBits: Int32;
   var IsKeyValid: Boolean;
@@ -268,10 +268,55 @@ begin
     begin
       WriteLn('!!! FAILED KEY VERIFICATION !!!');
       WriteLn('ModInverse produced an incorrect result for phi:');
-      // Print the phi that caused the failure.
-      // You would use your BigNumToString function here.
       WriteLn('phi = ', phi.ToString);
       Continue; // Try again with a new p and q
+    end;
+  until IsKeyValid;
+  Result.n := n;
+  Result.e := e;
+  Result.d := d;
+  WriteLn('Key Modulus: ', n.ToString);
+  WriteLn('Key Public: ', e.ToString);
+  WriteLn('Key Private: ', d.ToString);
+  WriteLn('RSA Key Pair Generation Complete.');
+end;
+
+function GenerateRSAKey(const KeySizeInBits: Int32 = 2048): TRSAKey;
+  var p, q, n, phi, phi_test, e, d, test_n, p_min_1, q_min_1, p_min_1_test, q_min_1_test: TUInt4096;
+  var PrimeSizeInBits: Int32;
+  var IsKeyValid: Boolean;
+begin
+  PrimeSizeInBits := KeySizeInBits shr 1;
+  e := 65537;
+  WriteLn('Generating RSA Key Pair...');
+  IsKeyValid := False;
+  repeat
+    repeat
+      WriteLn('Generating prime p...');
+      p := TUInt4096.MakePrime(PrimeSizeInBits);
+      //WriteLn(p.ToString);
+      WriteLn('Generating prime q...');
+      q := TUInt4096.MakePrime(PrimeSizeInBits);
+      //WriteLn(q.ToString);
+      if p = q then Continue;
+      n := TUInt4096.Multiplication(p, q);
+      //WriteLn('Modulus:');
+      //WriteLn(n.ToString);
+      p_min_1 := TUInt4096.Subtraction(p, TUInt4096.One);
+      q_min_1 := TUInt4096.Subtraction(q, TUInt4096.One);
+      phi := TUInt4096.Multiplication(p_min_1, q_min_1);
+      //WriteLn('Phi:');
+      //WriteLn(phi.ToString);
+    until TUInt4096.GCD(e, phi) = TUInt4096.One;
+    WriteLn('Primes found. Calculating private exponent d...');
+    d := ModInverse2(e, phi);//ModInverse_Reference(e, phi);
+    IsKeyValid := VerifyKeyPair(d, e, phi);
+    if not IsKeyValid then
+    begin
+      WriteLn('!!! FAILED KEY VERIFICATION !!!');
+      WriteLn('ModInverse produced an incorrect result for phi:');
+      WriteLn('phi = ', phi.ToString);
+      Continue;
     end;
   until IsKeyValid;
   Result.n := n;
@@ -669,6 +714,7 @@ begin
   WriteLn(n.ToString);
   s := DecryptStr(n, Key);
   WriteLn(s);
+  ReadLn;
   Exit;
   //i := 10;
   //j := -7;
