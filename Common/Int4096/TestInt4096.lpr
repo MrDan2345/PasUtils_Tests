@@ -129,7 +129,7 @@ begin
   if TUInt4096.Compare(r, TUInt4096.One) > 0 then Exit(TUInt4096.Zero);
   DivMod_Reference(t, N, quotient, Result);
 end;
-{
+
 function ModInverse2(const e, phi: TUInt4096): TUInt4096;
   function gcd(const a, b: TUInt4096; var x: TUInt4096; var y: TUInt4096): TUInt4096;
     var x1, y1, gcd_val: TUInt4096;
@@ -162,7 +162,7 @@ begin
   end;
   Result := x;
 end;
-}
+
 // A version of your ModInverse that prints its quotients for comparison.
 function ModInverse_Fast_WithDebug(const A, N: TUInt4096): TUInt4096;
   var t, new_t, r, new_r, quotient, remainder: TUInt4096;
@@ -689,73 +689,14 @@ procedure Run;
   var Key: TURSAKey;
 begin
   Randomize;
-  //TestMultiplication;
-  //TestVerificationFailure;
-  //FindFailingDivisionCase;
-  //Exit;
   WriteLn('Generating Key...');
-  Key := UMakeRSAKey(2048);
-  n := UEncryptStr('Hello World!', Key, 2048);
+  Key := UMakeRSAKey(2048, 24);
+  n := UEncryptStr('Hello World!', Key);
   WriteLn(n.ToString);
-  s := UDecryptStr(n, Key, 2048);
+  s := UDecryptStr(n, Key);
   WriteLn(s);
   ReadLn;
-  Exit;
-  //i := 10;
-  //j := -7;
-  //WriteLn(i div j, ':', i mod j);
-  //GenerateRSAKey;
-  //TestShl;
-  //TestPowMod_Simple;
-  //TestMontMult_Simple;
-  //TestMod;
-  //TestDiv;
-  //TDivModTester.DoTest;
-  Exit;
-  //n := TUInt4096.Make('$f9a3409c3b4433f');
-  {n := TUInt4096.Make(
-    '1039456237331496739069977513049273195498020105219957891323018612243649948'+
-    '0798871083325064400272241103834179365093503020151733143620283051637313572'+
-    '1646977755056500547935901789236815057665522946481916017844605944091285242'+
-    '2512881243218522680016369411273656167838575943646578907473796586771386026'+
-    '6846933348640260868518072734796607817506948425519838212558800426886825899'+
-    '6001072672261496007728465483225688668126803144308845382121179417384205576'+
-    '1580290687211715054036282733028312430102954044150342802362376277504298613'+
-    '2074247323165474819050098517207257735123077580733865126978681777448040042'+
-    '6090002449513190686132620116152142593569803308763974009151039817486236333'+
-    '8067881921919554275559227433756669625675031636859491458971654417103151695'+
-    '8170748152494948092776477894193668350957732612248187136809483848962198619'+
-    '9361977892127725557126713280651824010487654025168128150748892553086614965'+
-    '6525219014935945094173636643309014056537148948819609387803188016054871449'+
-    '0758584795301990508335270888258553043281143058727182665995609698533508494'+
-    '3884138668601363401948429070547369660951787170118900772230074535797478984'+
-    '0393585218214191091586749451982674746752737271939695100136047252875302877'+
-    '937798199791066531930753322433821143090810726015709045892318909912'
-  );}
-  //n := TUInt4096.MakeRandom();
-  n := TUInt4096.MakePrime(2048);
-  //n := TUInt4096.Make(-39485391235234123);
-  //n1 := TUInt4096.MakeRandom(256);
-  //n2 := TUInt4096.MakeRandom(256);
-  //n1 := TUInt4096.Make('8934562983456293');
-  //n2 := TUInt4096.Make('8912648746123');
-  //n1 := TUInt4096.Make('79630621571658699799223702039');
-  //n1 := TUInt4096.Make('796306215716586997992982374623702039');
-  //n1 := TUInt4096.MakeRandom(4095);
-  //n2 := TUInt4096.Make('8912648746123');
-  //n2 := TUInt4096.Make('89126019834748746123');
-  //n2 := TUInt4096.MakeRandom(16);
-  //n := TUInt4096.Subtraction(n1, n2);
-  //n := TUInt4096.Multiplication(n1, n2);
-  //n := TUInt4096.Division(n1, n2, r);
-  //WriteLn(n1.ToString, ' - ', n2.ToString, ' = ', n.ToString);
-  //WriteLn(n1.ToString, ' * ', n2.ToString, ' = ', n.ToString);
-  //WriteLn(n1.ToString, ' / ', n2.ToString, ' = ', n.ToString, '; r = ', r.ToString); //8934562983456293
-  //WriteLn(n.ToHex);
-  WriteLn(n.ToString);
 end;
-
-{ TDivModTester }
 
 class procedure TDivModTester.Simple;
   var Dividend, Divisor, Quotient, Remainder, ExpectedQ, ExpectedR: TUInt4096;
