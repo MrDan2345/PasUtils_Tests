@@ -113,6 +113,41 @@ procedure RunAESTests;
     WriteLn('Decrypted:   ', LowerCase(DecryptStr));
     WriteLn();
   end;
+  procedure RunTestCTR(const Name, KeyStr, DataHex, Expected: String);
+    var Key: TUAES.TKey256;
+    var Data, Cipher, Decrypt: TUInt8Array;
+    var CipherStr, DecryptStr: String;
+  begin
+    WriteLn(Name);
+    Key := BytesToKey(UHexToBytes(KeyStr));
+    Data := UHexToBytes(DataHex);
+    Cipher := UEncrypt_AES_CTR_256(Data, Key, IV);
+    CipherStr := UBytesToHex(Cipher);
+    Decrypt := UDecrypt_AES_CTR_256(Cipher, Key, IV);
+    DecryptStr := UBytesToHex(Decrypt);
+    WriteLn('Key: ', KeyStr);
+    WriteLn('Data: ', DataHex);
+    if LowerCase(Expected) = LowerCase(CipherStr) then
+    begin
+      WriteLn('Encrypt SUCCESS');
+    end
+    else
+    begin
+      WriteLn('Encrypt FAIL');
+    end;
+    WriteLn('Actual:   ', LowerCase(CipherStr));
+    WriteLn('Expected: ', LowerCase(Expected));
+    if LowerCase(DataHex) = LowerCase(DecryptStr) then
+    begin
+      WriteLn('Decrypt SUCCESS');
+    end
+    else
+    begin
+      WriteLn('Decrypt FAIL');
+    end;
+    WriteLn('Decrypted:   ', LowerCase(DecryptStr));
+    WriteLn();
+  end;
 begin
   WriteLn('----- ECB -----');
   RunTestECB(
@@ -153,6 +188,27 @@ begin
     '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
     '',
     '3cfe74262057a0f2feaf451981449e6d'
+  );
+  WriteLn('----- CTR -----');
+  IV := HexToIV('8c97b7d89adb8bd86c9fa562704ce40e');
+  WriteLn('Nonce: ', LowerCase(IVToHex(IV)));
+  RunTestCTR(
+    '--- Testing AES-256 CTR: Single Block ---',
+    '603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4',
+    '6bc1bee22e409f96e93d7e117393172a',
+    '010785a5fc4338ada3160a256a9a6a54'
+  );
+  RunTestCTR(
+    '--- Testing AES-256 CTR: Multi-Block & Padding ---',
+    '603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4',
+    'ae2d8a571e03ac9c9eb76fac45af8e5130c81c46a35ce411e5fbc1191a0a52ef',
+    'c4ebb110cc000ba7d49c1b985ca6f32f7e84549b45d0681fbf33e98567c76af6'
+  );
+  RunTestCTR(
+    '--- Testing AES-256 CTR: Empty Data ---',
+    '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+    '',
+    ''
   );
 end;
 
