@@ -21,26 +21,37 @@ end;
 procedure RunAESTests;
   procedure RunTest(const Name, KeyStr, DataHex, Expected: String);
     var Key: TUAES256Key;
-    var Data, Cipher: TUInt8Array;
-    var CipherStr: String;
+    var Data, Cipher, Decrypt: TUInt8Array;
+    var CipherStr, DecryptStr: String;
   begin
     WriteLn(Name);
     Key := BytesToKey(UHexToBytes(KeyStr));
     Data := UHexToBytes(DataHex);
     Cipher := UEncrypt_AES_PKCS7_ECB_256(Data, Key);
     CipherStr := UBytesToHex(Cipher);
+    Decrypt := UDecrypt_AES_PKCS7_ECB_256(Cipher, Key);
+    DecryptStr := UBytesToHex(Decrypt);
     WriteLn('Key: ', KeyStr);
     WriteLn('Data: ', DataHex);
     if LowerCase(Expected) = LowerCase(CipherStr) then
     begin
-      WriteLn('SUCCESS');
+      WriteLn('Encrypt SUCCESS');
     end
     else
     begin
-      WriteLn('FAIL');
+      WriteLn('Encrypt FAIL');
     end;
     WriteLn('Actual:   ', LowerCase(CipherStr));
     WriteLn('Expected: ', LowerCase(Expected));
+    if LowerCase(DataHex) = LowerCase(DecryptStr) then
+    begin
+      WriteLn('Decrypt SUCCESS');
+    end
+    else
+    begin
+      WriteLn('Decrypt FAIL');
+    end;
+    WriteLn('Decrypted:   ', LowerCase(DecryptStr));
     WriteLn();
   end;
 begin
@@ -67,6 +78,7 @@ end;
 procedure Run;
 begin
   RunAESTests;
+  ReadLn;
 end;
 
 begin
