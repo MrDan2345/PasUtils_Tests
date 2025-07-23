@@ -11,30 +11,55 @@ uses
   CryptoUtils;
 
 procedure Run;
-  var Key: TURSA.TKey;
   var TestStr: String = 'Hello World!';
+  var Key: TURSA.TKey;
   var DecryptStr: String;
   var Cipher: TUInt4096;
+  var i, m: Int32;
+  var Fails: array[0..1] of Int32;
 begin
-  Randomize;
-  WriteLn('Generating Key...');
-  Key := UMakeRSAKey(2048, 24);
-  WriteLn('Key Modulus: ', Key.n.ToString);
-  WriteLn('Key Public: ', Key.e.ToString);
-  WriteLn('Key Private: ', Key.d.ToString);
-  Cipher := UEncrypt_RSA_Str(TestStr, Key);
-  DecryptStr := UDecrypt_RSA_Str(Cipher, Key);
-  if TestStr = DecryptStr then
+  m := 0;
+  for m := 0 to 1 do
   begin
-    WriteLn('SUCCESS');
-  end
-  else
-  begin
-    WriteLn('FAIL');
+    Fails[m] := 0;
+    case m of
+      0: WriteLn('--- Testing PKCS1 padding ---');
+      1: WriteLn('--- Testing OAEP padding ---');
+    end;
+    for i := 1 to 10 do
+    begin
+      WriteLn('Generating Key...');
+      Key := UMakeRSAKey(2048, 24);
+      case m of
+        0:
+        begin
+          Cipher := UEncrypt_RSA_PKCS1_Str(TestStr, Key);
+          DecryptStr := UDecrypt_RSA_PKCS1_Str(Cipher, Key);
+        end;
+        1:
+        begin
+          Cipher := UEncrypt_RSA_OAEP_Str(TestStr, Key);
+          DecryptStr := UDecrypt_RSA_OAEP_Str(Cipher, Key);
+        end;
+      end;
+      if TestStr = DecryptStr then
+      begin
+        WriteLn('SUCCESS');
+      end
+      else
+      begin
+        WriteLn('FAIL');
+        Inc(Fails[m]);
+      end;
+      WriteLn('Cipher: ', Cipher.ToString);
+      WriteLn('Original:  ', TestStr);
+      WriteLn('Decrypted: ', DecryptStr);
+    end;
+    WriteLn();
   end;
-  WriteLn('Cipher: ', Cipher.ToString);
-  WriteLn('Original:  ', TestStr);
-  WriteLn('Decrypted: ', DecryptStr);
+  WriteLn('PKCS1 Fails = ', Fails[0]);
+  WriteLn('OAEP Fails = ', Fails[1]);
+  WriteLn('Done.');
   //ReadLn;
 end;
 
