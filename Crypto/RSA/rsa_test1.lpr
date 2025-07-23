@@ -51,7 +51,7 @@ begin
         WriteLn('FAIL');
         Inc(Fails[m]);
       end;
-      WriteLn('Cipher: ', Cipher.ToString);
+      WriteLn('Cipher: ', Cipher.ToBase64);
       WriteLn('Original:  ', TestStr);
       WriteLn('Decrypted: ', DecryptStr);
     end;
