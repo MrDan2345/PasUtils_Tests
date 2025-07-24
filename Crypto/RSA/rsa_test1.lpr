@@ -12,8 +12,8 @@ uses
 
 procedure Run;
   var TestStr: String = 'Hello World!';
-  var Key: TURSA.TKey;
-  var DecryptStr: String;
+  var Key, Temp: TURSA.TKey;
+  var DecryptStr, Export: String;
   var Cipher: TUInt4096;
   var i, m: Int32;
   var Fails: array[0..1] of Int32;
@@ -30,6 +30,9 @@ begin
     begin
       WriteLn('Generating Key...');
       Key := UMakeRSAKey(2048, 24);
+      Export := UExportRSAKey(Key);
+      WriteLn(Export);
+      Temp := UImportRSAKey(Export);
       case m of
         0:
         begin
@@ -51,7 +54,7 @@ begin
         WriteLn('FAIL');
         Inc(Fails[m]);
       end;
-      WriteLn('Cipher: ', Cipher.ToBase64);
+      //WriteLn('Cipher: ', Cipher.ToBase64);
       WriteLn('Original:  ', TestStr);
       WriteLn('Decrypted: ', DecryptStr);
     end;
