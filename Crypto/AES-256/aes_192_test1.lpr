@@ -1,4 +1,4 @@
-program aes_256_test1;
+program aes_192_test1;
 
 {$mode objfpc}{$H+}
 
@@ -11,10 +11,10 @@ uses
   CommonUtils,
   CryptoUtils;
 
-function BytesToKey(const Bytes: TUInt8Array): TUAES.TKey256;
+function BytesToKey(const Bytes: TUInt8Array): TUAES.TKey192;
   var n: Int32;
 begin
-  n := UMin(Length(Bytes), Length(TUAES.TKey256));
+  n := UMin(Length(Bytes), Length(TUAES.TKey192));
   Move(Bytes[0], Result[0], n);
 end;
 
@@ -44,16 +44,16 @@ end;
 procedure RunAESTests;
   var IV: TUAES.TInitVector;
   procedure RunTestECB(const Name, KeyStr, DataHex, Expected: String);
-    var Key: TUAES.TKey256;
+    var Key: TUAES.TKey192;
     var Data, Cipher, Decrypt: TUInt8Array;
     var CipherStr, DecryptStr: String;
   begin
     WriteLn(Name);
     Key := BytesToKey(UHexToBytes(KeyStr));
     Data := UHexToBytes(DataHex);
-    Cipher := UEncrypt_AES_PKCS7_ECB_256(Data, Key);
+    Cipher := UEncrypt_AES_PKCS7_ECB_192(Data, Key);
     CipherStr := UBytesToHex(Cipher);
-    Decrypt := UDecrypt_AES_PKCS7_ECB_256(Cipher, Key);
+    Decrypt := UDecrypt_AES_PKCS7_ECB_192(Cipher, Key);
     DecryptStr := UBytesToHex(Decrypt);
     WriteLn('Key: ', KeyStr);
     WriteLn('Data: ', DataHex);
@@ -79,16 +79,16 @@ procedure RunAESTests;
     WriteLn();
   end;
   procedure RunTestCBC(const Name, KeyStr, DataHex, Expected: String);
-    var Key: TUAES.TKey256;
+    var Key: TUAES.TKey192;
     var Data, Cipher, Decrypt: TUInt8Array;
     var CipherStr, DecryptStr: String;
   begin
     WriteLn(Name);
     Key := BytesToKey(UHexToBytes(KeyStr));
     Data := UHexToBytes(DataHex);
-    Cipher := UEncrypt_AES_PKCS7_CBC_256(Data, Key, IV);
+    Cipher := UEncrypt_AES_PKCS7_CBC_192(Data, Key, IV);
     CipherStr := UBytesToHex(Cipher);
-    Decrypt := UDecrypt_AES_PKCS7_CBC_256(Cipher, Key, IV);
+    Decrypt := UDecrypt_AES_PKCS7_CBC_192(Cipher, Key, IV);
     DecryptStr := UBytesToHex(Decrypt);
     WriteLn('Key: ', KeyStr);
     WriteLn('Data: ', DataHex);
@@ -114,16 +114,16 @@ procedure RunAESTests;
     WriteLn();
   end;
   procedure RunTestCTR(const Name, KeyStr, DataHex, Expected: String);
-    var Key: TUAES.TKey256;
+    var Key: TUAES.TKey192;
     var Data, Cipher, Decrypt: TUInt8Array;
     var CipherStr, DecryptStr: String;
   begin
     WriteLn(Name);
     Key := BytesToKey(UHexToBytes(KeyStr));
     Data := UHexToBytes(DataHex);
-    Cipher := UEncrypt_AES_CTR_256(Data, Key, IV);
+    Cipher := UEncrypt_AES_CTR_192(Data, Key, IV);
     CipherStr := UBytesToHex(Cipher);
-    Decrypt := UDecrypt_AES_CTR_256(Cipher, Key, IV);
+    Decrypt := UDecrypt_AES_CTR_192(Cipher, Key, IV);
     DecryptStr := UBytesToHex(Decrypt);
     WriteLn('Key: ', KeyStr);
     WriteLn('Data: ', DataHex);
@@ -149,7 +149,7 @@ procedure RunAESTests;
     WriteLn();
   end;
   procedure RunTestGCM(const Name, KeyStr, DataHex, Expected, Extra: String);
-    var Key: TUAES.TKey256;
+    var Key: TUAES.TKey192;
     var Data, Cipher, Decrypt, AAD: TUInt8Array;
     var CipherStr, DecryptStr: String;
     var AuthTag, DecryptTag: TUAES.TTag;
@@ -160,9 +160,9 @@ procedure RunAESTests;
     AAD := UStrToBytes(Extra);
     Key := BytesToKey(UHexToBytes(KeyStr));
     Data := UHexToBytes(DataHex);
-    Cipher := UEncrypt_AES_GCM_256(Data, Key, IV, AAD, AuthTag);
+    Cipher := UEncrypt_AES_GCM_192(Data, Key, IV, AAD, AuthTag);
     CipherStr := UBytesToHex(Cipher);
-    Decrypt := UDecrypt_AES_GCM_256(Cipher, Key, IV, AAD, DecryptTag);
+    Decrypt := UDecrypt_AES_GCM_192(Cipher, Key, IV, AAD, DecryptTag);
     DecryptStr := UBytesToHex(Decrypt);
     WriteLn('Key: ', KeyStr);
     WriteLn('Data: ', DataHex);
@@ -207,62 +207,62 @@ procedure RunAESTests;
 begin
   WriteLn('----- ECB -----');
   RunTestECB(
-    '--- Testing AES-256 ECB: Single Block ---',
-    '603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4',
+    '--- Testing AES-192 ECB: Single Block ---',
+    '603deb1015ca71be2b73aef0857d77811f352c073b6108d7',
     '6bc1bee22e409f96e93d7e117393172a',
-    'f3eed1bdb5d2a03c064b5a7e3db181f84c45dfb3b3b484ec35b0512dc8c1c4d6'
+    '5d2a8775fd675ae06daf48b97441d5e2af92459629e8e9c27a79edb00d04f802'
   );
   RunTestECB(
-    '--- Testing AES-256 ECB: Multi-Block & Padding ---',
-    '603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4',
+    '--- Testing AES-192 ECB: Multi-Block & Padding ---',
+    '603deb1015ca71be2b73aef0857d77811f352c073b6108d7',
     'ae2d8a571e03ac9c9eb76fac45af8e5130c81c46a35ce411e5fbc1191a0a52ef',
-    '591ccb10d410ed26dc5ba74a31362870b6ed21b99ca6f4f9f153e7b1beafed1d4c45dfb3b3b484ec35b0512dc8c1c4d6'
+    '11273082687c9cd122fc826f12aeebdc457cf6844b0d204e9fc010e2b41347dcaf92459629e8e9c27a79edb00d04f802'
   );
   RunTestECB(
-    '--- Testing AES-256 ECB: Empty Data ---',
-    '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+    '--- Testing AES-192 ECB: Empty Data ---',
+    '0123456789abcdef0123456789abcdef0123456789abcdef',
     '',
-    '76f92b99011802440efaf3539934b7b5'
+    '0f1f3b1cef61325a2cb80a3e061fcf65'
   );
   WriteLn('----- CBC -----');
   IV := HexToIV('8c97b7d89adb8bd86c9fa562704ce40e');
   WriteLn('IV: ', LowerCase(IVToHex(IV)));
   RunTestCBC(
-    '--- Testing AES-256 CBC: Single Block ---',
-    '603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4',
+    '--- Testing AES-192 CBC: Single Block ---',
+    '603deb1015ca71be2b73aef0857d77811f352c073b6108d7',
     '6bc1bee22e409f96e93d7e117393172a',
-    'edaa2506e0d27c14040adf8a9542faec06a2ca2b2e70e75e9f70fc2f49767845'
+    '8b68ffcf6fb82e5c8c415f83d93cbfb9f9bf3945490f2a34d98226932b02d68b'
   );
   RunTestCBC(
-    '--- Testing AES-256 CBC: Multi-Block & Padding ---',
-    '603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4',
+    '--- Testing AES-192 CBC: Multi-Block & Padding ---',
+    '603deb1015ca71be2b73aef0857d77811f352c073b6108d7',
     'ae2d8a571e03ac9c9eb76fac45af8e5130c81c46a35ce411e5fbc1191a0a52ef',
-    '4b75a8cdf3af944a0ffc376e25b66293a41448cdc97395005d358833c24a28ced5d6dbccdc2af4f037a54c2a704f6b23'
+    '09eaeed06c994fcc64ec2fa2991da1f1f7364f00026b981d61b4fbdabbb55455ed57f76379f5521b0f9aa0f98485bccc'
   );
   RunTestCBC(
-    '--- Testing AES-256 CBC: Empty Data ---',
-    '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+    '--- Testing AES-192 CBC: Empty Data ---',
+    '0123456789abcdef0123456789abcdef0123456789abcdef',
     '',
-    '3cfe74262057a0f2feaf451981449e6d'
+    '619b9a3973eea5f2ef2e4833c631a06a'
   );
   WriteLn('----- CTR -----');
   IV := HexToIV('8c97b7d89adb8bd86c9fa562704ce40e');
   WriteLn('Nonce: ', LowerCase(IVToHex(IV)));
   RunTestCTR(
-    '--- Testing AES-256 CTR: Short Data ---',
-    '603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4',
+    '--- Testing AES-192 CTR: Short Data ---',
+    '603deb1015ca71be2b73aef0857d77811f352c073b6108d7',
     '6bc1bee22e409f96e93d7e117393172a',
-    '010785a5fc4338ada3160a256a9a6a54'
+    '5a8c82134cc0ea1b3607fb042240624a'
   );
   RunTestCTR(
-    '--- Testing AES-256 CTR: Longer Data ---',
-    '603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4',
+    '--- Testing AES-192 CTR: Longer Data ---',
+    '603deb1015ca71be2b73aef0857d77811f352c073b6108d7',
     'ae2d8a571e03ac9c9eb76fac45af8e5130c81c46a35ce411e5fbc1191a0a52ef',
-    'c4ebb110cc000ba7d49c1b985ca6f32f7e84549b45d0681fbf33e98567c76af6'
+    '9f60b6a67c83d911418deab9147cfb31874616ed4f0bb5bfe5c98e17fa718cbe'
   );
   RunTestCTR(
-    '--- Testing AES-256 CTR: Empty Data ---',
-    '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+    '--- Testing AES-192 CTR: Empty Data ---',
+    '0123456789abcdef0123456789abcdef0123456789abcdef',
     '',
     ''
   );
@@ -270,17 +270,17 @@ begin
   IV := HexToIV('8c97b7d89adb8bd86c9fa562704ce40e');
   WriteLn('Nonce: ', LowerCase(IVToHex(IV)));
   RunTestGCM(
-    '--- Testing AES-256 GCM: No Extra Auth Data ---',
-    '603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4',
+    '--- Testing AES-192 GCM: No Extra Auth Data ---',
+    '603deb1015ca71be2b73aef0857d77811f352c073b6108d7',
     '6bc1bee22e409f96e93d7e117393172a',
-    '2b7a47746822e658dedeb57b0fe04a37',
+    '83a5fffadde272d61f96807580e40106',
     ''
   );
   RunTestGCM(
-    '--- Testing AES-256 GCM: Extra Auth Data ---',
-    '603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4',
+    '--- Testing AES-192 GCM: Extra Auth Data ---',
+    '603deb1015ca71be2b73aef0857d77811f352c073b6108d7',
     '6bc1bee22e409f96e93d7e117393172a',
-    '2b7a47746822e658dedeb57b0fe04a37',
+    '83a5fffadde272d61f96807580e40106',
     '192.168.1.123'
   );
 end;

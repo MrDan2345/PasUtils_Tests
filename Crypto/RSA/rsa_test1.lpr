@@ -30,9 +30,13 @@ begin
     begin
       WriteLn('Generating Key...');
       Key := UMakeRSAKey(2048, 24);
-      Export := UExportRSAKey(Key);
+      Export := TURSA.ExportKeyPublic_PKCS1(Key);
       WriteLn(Export);
-      Temp := UImportRSAKey(Export);
+      Temp := TURSA.ImportKey_PKCS1(Export);
+      if Key.n <> Temp.n then
+      begin
+        WriteLn('Mismatch!');
+      end;
       case m of
         0:
         begin
