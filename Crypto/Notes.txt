@@ -1,0 +1,27 @@
+Symmetric encryption modes of operation
+ 
+1. ECB (Electronic Codebook)
+    How it works: This is the simplest and most naive mode. It takes each 16-byte block of your data and encrypts it completely independently with the same key.
+    Problem: It's highly insecure and should never be used. If you have two identical plaintext blocks (like a block of all zeros, or the header of a file), they will produce two identical ciphertext blocks. This leaks a lot of information about the structure of your original data.
+
+2. CBC (Cipher Block Chaining)
+    How it works: This mode fixes the main problem of ECB by "chaining" the blocks together. Before a plaintext block is encrypted, it is first XORed with the previous ciphertext block. For the very first block, a random block of data called an Initialization Vector (IV) is used.
+    Advantage: Identical plaintext blocks will now produce different ciphertext blocks, hiding data patterns. This was the standard for a long time.
+    Disadvantage: Encryption is sequential and cannot be parallelized (you need the result of block N-1 to encrypt block N).
+
+3. CTR (Counter Mode)
+    How it works: This mode effectively turns the block cipher into a stream cipher. It generates a "keystream" by encrypting a combination of a nonce (a number used only once) and a counter for each block (nonce+0, nonce+1, nonce+2, etc.). This keystream is then simply XORed with your plaintext to produce the ciphertext.
+    Advantages:
+        Parallelizable: Since each block's keystream is generated independently, you can encrypt or decrypt all blocks of a large file at the same time on multiple cores.
+        Random Access: You can decrypt any block of the file (e.g., the middle) without having to decrypt everything before it.
+    Status: This is a modern, fast, and highly recommended mode. GCM (Galois/Counter Mode), is built on top of CTR mode and adds authentication.
+
+4. CFB (Cipher Feedback)
+    How it works: This also turns the block cipher into a stream cipher, similar to CBC. It encrypts the previous ciphertext block and then XORs the result with the current plaintext block to create the new ciphertext. Like CBC, it uses an IV for the first block.
+    Use Case: It's useful in scenarios where you might need to encrypt data in smaller chunks than the full 16-byte block size (e.g., a single byte at a time).
+    Disadvantage: Like CBC, it is sequential and cannot be parallelized.
+
+5. OFB (Output Feedback)
+    How it works: This mode is very similar to CTR. It generates a keystream by repeatedly encrypting an IV (Enc(IV), Enc(Enc(IV)), etc.) and XORing that keystream with the plaintext.
+    Advantage: It's a stream cipher, and errors do not propagate (a bit error in the ciphertext only affects the corresponding bit in the plaintext).
+    Disadvantage: It is sequential and cannot be parallelized. CTR mode has largely superseded it because CTR is more flexible and allows for parallel processing.
