@@ -12,7 +12,7 @@ uses
 
 function GenPassword(const PassLength: Int32): String;
   const Chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!"#$%&''()*+,-./:;<=>?@[\]^_{|}~';
-  var i, c: Int32;
+  var i: Int32;
 begin
   UThreadRandomize;
   Result := '';
