@@ -64,6 +64,12 @@ begin
   WriteLn(Exp);
   Test := TURSA.ImportKeyPublic_X509(Exp);
   CompareKeysPublic(Key, Test, 'X509'); WriteLn();
+
+  Exp := TURSA.ExportKeyPrivateEncrypted_PKCS8(Key, UStrToBytes('MyPassword'));
+  WriteLn(Exp);
+  Test := TURSA.ImportKeyPrivateEncrypted_PKCS8(Exp, UStrToBytes('MyPassword'));
+  CompareKeysPrivate(Key, Test, 'PKCS8 Encrypted'); WriteLn();
+
 end;
 
 begin
