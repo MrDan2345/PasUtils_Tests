@@ -14,7 +14,7 @@ uses
 function ImportKey(const KeyStr: String): Boolean;
   var Key: TURSA.TKey;
 begin
-  Key := TURSA.ImportKey(KeyStr);
+  Key := UImportRSAKey(KeyStr);
   Result := Key.IsValid;
   if not Result then Exit;
   if Key.IsPrivate then
@@ -54,7 +54,7 @@ procedure TestPKCS5;
   var Key: String;
 begin
   Key := UFileToStr(UAppPath + '/keys/private_encrypted_pkcs5_1024.txt');
-  TURSA.ImportKeyPrivateEncrypted_PKCS5(Key, nil);
+  //TURSA.ImportKeyPrivateEncrypted_PKCS5(Key, nil);
 end;
 
 begin

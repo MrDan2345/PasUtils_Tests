@@ -30,9 +30,9 @@ begin
     begin
       WriteLn('Generating Key...');
       Key := UMakeRSAKey(2048, 24);
-      Export := TURSA.ExportKeyPublic_PKCS1(Key);
+      Export := UExportRSAKey_PKCS1(Key);
       WriteLn(Export);
-      Temp := TURSA.ImportKey_PKCS1(Export);
+      Temp := UImportRSAKey(Export);
       if Key.n <> Temp.n then
       begin
         WriteLn('Mismatch!');
@@ -72,5 +72,8 @@ end;
 
 begin
   Run;
+{$if defined(windows)}
+  ReadLn;
+{$endif}
 end.
 
