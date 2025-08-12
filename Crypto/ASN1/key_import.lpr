@@ -50,8 +50,16 @@ begin
   WriteLn('Done.');
 end;
 
+procedure TestPKCS5;
+  var Key: String;
 begin
-  Run;
+  Key := UFileToStr(UAppPath + '/keys/private_encrypted_pkcs5_1024.txt');
+  TURSA.ImportKeyPrivateEncrypted_PKCS5(Key, nil);
+end;
+
+begin
+  TestPKCS5;
+  //Run;
 {$if defined(windows)}
   ReadLn;
 {$endif}
