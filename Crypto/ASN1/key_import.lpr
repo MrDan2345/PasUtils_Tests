@@ -58,8 +58,8 @@ begin
 end;
 
 begin
-  TestPKCS5;
-  //Run;
+  //TestPKCS5;
+  Run;
 {$if defined(windows)}
   ReadLn;
 {$endif}
