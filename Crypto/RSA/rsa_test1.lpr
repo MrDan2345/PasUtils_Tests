@@ -28,8 +28,9 @@ begin
     end;
     for i := 1 to 10 do
     begin
-      WriteLn('Generating Key...');
+      WriteLn('Generating Key (', i + (m * 10), '/', '20)...');
       Key := UMakeRSAKey(2048, 24);
+      //Key := UMakeRSAKey(4096, 24);
       Export := UExportRSAKey_PKCS1(Key);
       WriteLn(Export);
       Temp := UImportRSAKey(Export);
@@ -49,6 +50,9 @@ begin
           DecryptStr := UDecrypt_RSA_OAEP_Str(Cipher, Key);
         end;
       end;
+      //WriteLn('Cipher: ', Cipher.ToBase64);
+      WriteLn('Original:  ', TestStr);
+      WriteLn('Decrypted: ', DecryptStr);
       if TestStr = DecryptStr then
       begin
         WriteLn('SUCCESS');
@@ -58,9 +62,7 @@ begin
         WriteLn('FAIL');
         Inc(Fails[m]);
       end;
-      //WriteLn('Cipher: ', Cipher.ToBase64);
-      WriteLn('Original:  ', TestStr);
-      WriteLn('Decrypted: ', DecryptStr);
+      WriteLn();
     end;
     WriteLn();
   end;

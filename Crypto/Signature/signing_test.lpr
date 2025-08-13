@@ -20,7 +20,7 @@ begin
   Key := UMakeRSAKey(1024, 24);
   Data := UStrToBytes('Hello World!');
   Signature := USign_SHA256(Data, Key);
-  WriteLn('Signature: ', UBytesToHex(Signature));
+  WriteLn('Signature: ', LowerCase(UBytesToHex(Signature)));
   WriteLn('Verify: ', UBoolToStr(UVerify(Data, Signature, Key)));
 end;
 

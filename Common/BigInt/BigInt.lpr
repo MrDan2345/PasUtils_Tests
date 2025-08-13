@@ -11,16 +11,16 @@ uses
   SysUtils;
 
 procedure Run;
-  var a0, b0, c0: TUInt4096;
+  var a0, b0, c0: TUInt4096_Debug;
   var a1, b1, c1: TUInt8192;
   var s0, s1: String;
   var i: Int32;
 begin
   for i := 1 to 100 do
   begin
-    a0 := TUInt4096.MakeRandom(2048);
+    a0 := TUInt4096_Debug.MakeRandom(2048);
     a1 := a0.ToString;
-    b0 := TUInt4096.MakeRandom(1024);
+    b0 := TUInt4096_Debug.MakeRandom(1024);
     b1 := b0.ToString;
     c0 := a0 div b0;
     c1 := a1 div b1;
@@ -37,6 +37,8 @@ end;
 
 begin
   Run;
+{$if defined(windows)}
   ReadLn;
+{$endif}
 end.
 

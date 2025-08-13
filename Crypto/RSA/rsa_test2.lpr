@@ -43,33 +43,28 @@ procedure Run;
   var Exp: String;
 begin
   WriteLn('Making RSA Key...');
-  Key := UMakeRSAKey(2048, 24);
+  Key := UMakeRSAKey(4096, 24);
+  //Key := UMakeRSAKey(2048, 24);
 
-  Exp := TURSA.ExportKeyPrivate_PKCS1(Key);
+  Exp := UExportRSAKey_PKCS1(Key);
   WriteLn(Exp);
-  Test := TURSA.ImportKeyPrivate_PKCS1(Exp);
+  Test := UImportRSAKey(Exp);
   CompareKeysPrivate(Key, Test, 'PKCS1 Private'); WriteLn();
 
-  Exp := TURSA.ExportKeyPublic_PKCS1(Key);
+  Exp := UExportRSAKey_PKCS8(Key);
   WriteLn(Exp);
-  Test := TURSA.ImportKeyPublic_PKCS1(Exp);
-  CompareKeysPublic(Key, Test, 'PKCS1 Public'); WriteLn();
-
-  Exp := TURSA.ExportKeyPrivate_PKCS8(Key);
-  WriteLn(Exp);
-  Test := TURSA.ImportKeyPrivate_PKCS8(Exp);
+  Test := UImportRSAKey(Exp);
   CompareKeysPrivate(Key, Test, 'PKCS8'); WriteLn();
 
-  Exp := TURSA.ExportKeyPublic_X509(Key);
+  Exp := UExportRSAKey_X509(Key);
   WriteLn(Exp);
-  Test := TURSA.ImportKeyPublic_X509(Exp);
+  Test := UImportRSAKey(Exp);
   CompareKeysPublic(Key, Test, 'X509'); WriteLn();
 
-  Exp := TURSA.ExportKeyPrivateEncrypted_PKCS8(Key, UStrToBytes('MyPassword'));
+  Exp := UExportRSAKey_PKCS8(Key, 'MyPassword');
   WriteLn(Exp);
-  Test := TURSA.ImportKeyPrivateEncrypted_PKCS8(Exp, UStrToBytes('MyPassword'));
+  Test := UImportRSAKey(Exp, 'MyPassword');
   CompareKeysPrivate(Key, Test, 'PKCS8 Encrypted'); WriteLn();
-
 end;
 
 begin
