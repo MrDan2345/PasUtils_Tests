@@ -14,7 +14,7 @@ procedure Run;
   var TestStr: String = 'Hello World!';
   var Key, Temp: TURSA.TKey;
   var DecryptStr, Export: String;
-  var Cipher: TUInt4096;
+  var Cipher: TUCryptoInt;
   var i, m: Int32;
   var Fails: array[0..1] of Int32;
 begin
