@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, ExtCtrls, StdCtrls,
-  CommonUtils, NetUtils;
+  CommonUtils, NetUtils, LCLType;
 
 type
   TForm1 = class(TForm)
@@ -17,6 +17,7 @@ type
     Timer: TTimer;
     procedure Button1Click(Sender: TObject);
     procedure ButtonStartStop1Click(Sender: TObject);
+    procedure Edit1KeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
     procedure FormCreate(Sender: TObject);
   private
@@ -31,6 +32,7 @@ type
     end;
     var ReceivedMessages: array of TReceivedMessage;
     var ReceivedMessagesLock: TUCriticalSection;
+    var NewMessages: Boolean;
     var Beacon: TUNet.TBeaconRef;
     var Peers: TPeers;
     var Sock: TUSocket;
@@ -65,13 +67,20 @@ end;
 
 procedure TForm1.SendMessage(const Msg: String);
   var i, n: Int32;
+  var SockAddr: TUSockAddr;
 begin
   if not Sock.IsValid then Exit;
+  SockAddr := TUSockAddr.Default;
   n := UMin(1408, Length(Msg));
   for i := 0 to High(Peers) do
   begin
-    Sock.SendTo(@Msg[1], n, 0, @Peers[i].Addr, SizeOf(Peers[i].Addr));
+    if not UStrIsNumber(Peers[i].Message) then Continue;
+    SockAddr.sin_port := UNetHostToNetShort(StrToInt(Peers[i].Message));
+    SockAddr.sin_addr := Peers[i].Addr;
+    Sock.SendTo(@Msg[1], n, 0, @SockAddr, SizeOf(SockAddr));
+    //Memo1.Append('Sent: ' + UNetNetAddrToStr(Peers[i].Addr) + ':' + Peers[i].Message);
   end;
+  Memo1.Append(UNetHostName + ': ' + Msg);
 end;
 
 procedure TForm1.OnPeerJoined(const Peer: TPeer);
@@ -96,7 +105,7 @@ procedure TForm1.OnTimer(Sender: TObject);
     Result := -1;
   end;
   var NewPeers: TPeers;
-  var i: Int32;
+  var i, j: Int32;
 begin
   NewPeers := Beacon.Ptr.Peers;
   for i := 0 to High(Peers) do
@@ -110,18 +119,36 @@ begin
     OnPeerJoined(NewPeers[i]);
   end;
   Peers := NewPeers;
+  if NewMessages then
+  begin
+    ReceivedMessagesLock.Enter;
+    try
+      for i := 0 to High(ReceivedMessages) do
+      for j := 0 to High(Peers) do
+      if Peers[j].Addr = ReceivedMessages[i].Addr then
+      begin
+        Memo1.Append(Peers[j].Name + ': ' + ReceivedMessages[j].Msg);
+        Break;
+      end;
+      ReceivedMessages := nil;
+      NewMessages := False;
+    finally
+      ReceivedMessagesLock.Leave;
+    end;
+  end;
 end;
 
 procedure TForm1.OnStart;
   var Addr: TUSockAddr;
   var i, r: Int32;
 begin
+  NewMessages := False;
   Sock := TUSocket.CreateUDP();
   Addr := TUSockAddr.Default;
   Port := 61390;
   for i := 0 to 9 do
   begin
-    Addr.sin_port := UNetHostToNetLong(Port);
+    Addr.sin_port := UNetHostToNetShort(Port);
     r := Sock.Bind(@Addr, SizeOf(Addr));
     if r = 0 then Break;
     Inc(Port);
@@ -132,7 +159,9 @@ begin
     Sock := TUSocket.Invalid;
     Exit;
   end;
-
+  //Memo1.Append('Started: ' + UNetNetAddrToStr(UNetLocalAddr) + ':' + IntToStr(Port));
+  Listener := TListener.Create(True);
+  Listener.Start;
   Beacon.Ptr.Message := IntToStr(Port);
   Beacon.Ptr.Enabled := True;
 end;
@@ -142,13 +171,17 @@ procedure TForm1.OnStop;
 begin
   if not Sock.IsValid then Exit;
   Beacon.Ptr.Enabled := False;
+  Listener.Terminate;
+  Sock.Shutdown();
+  Sock.Close;
+  Sock := TUSocket.Invalid;
+  Listener.WaitFor;
+  Listener.Free;
   for i := 0 to High(Peers) do
   begin
     OnPeerLeft(Peers[i]);
   end;
   Peers := nil;
-  Sock.Close;
-  Sock := TUSocket.Invalid;
 end;
 
 procedure TForm1.FormClose(Sender: TObject; var CloseAction: TCloseAction);
@@ -170,9 +203,17 @@ begin
   end;
 end;
 
+procedure TForm1.Edit1KeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+begin
+  if Key <> VK_RETURN then Exit;
+  if Length(Edit1.Text) = 0 then Exit;
+  SendMessage(Edit1.Text);
+  Edit1.Text := '';
+end;
+
 procedure TForm1.Button1Click(Sender: TObject);
 begin
-  if Lenhth(Edit1.Text) = 0 then Exit;
+  if Length(Edit1.Text) = 0 then Exit;
   SendMessage(Edit1.Text);
   Edit1.Text := '';
 end;
@@ -182,16 +223,25 @@ procedure TForm1.TListener.Execute;
   var Buffer: array[0..BufferSize - 1] of UInt8;
   var AddrFrom: TUSockAddr;
   var SockLen: TUSockLen;
-  var Msg: String;
-  var i, n: Int32;
+  var Msg: TForm1.TReceivedMessage;
+  var n: Int32;
 begin
   while not Terminated do
   begin
     SockLen := SizeOf(AddrFrom);
     n := Form1.Sock.RecvFrom(@Buffer, BufferSize, 0, @AddrFrom, @SockLen);
     if n <= 0 then Continue;
-    SetLength(Msg, n);
-    Move(Buffer, Msg[1], n);
+    Form1.ReceivedMessagesLock.Enter;
+    try
+      Msg.Addr := AddrFrom.sin_addr;
+      Msg.Msg := '';
+      SetLength(Msg.Msg, n);
+      Move(Buffer, Msg.Msg[1], n);
+      specialize UArrAppend<TForm1.TReceivedMessage>(Form1.ReceivedMessages, Msg);
+      Form1.NewMessages := True;
+    finally
+      Form1.ReceivedMessagesLock.Leave;
+    end;
   end;
 end;
 
