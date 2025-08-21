@@ -49,7 +49,7 @@
       <Filename Value="Chat"/>
     </Target>
     <SearchPaths>
-      <IncludeFiles Value="$(ProjOutDir)"/>
+      <IncludeFiles Value="$(ProjOutDir);../../PasUtils"/>
       <OtherUnitFiles Value="../../PasUtils"/>
       <UnitOutputDirectory Value="lib/$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
