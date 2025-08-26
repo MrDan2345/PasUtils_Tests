@@ -145,6 +145,7 @@ begin
     _Sock := TUSocket.Invalid;
     Exit;
   end;
+  Form1.Memo1.Append('Listening: ' + IntToStr(NToHs(Addr.sin_port)));
   NameLength := UMin(Length(_Name), 40);
   SetLength(QueryPacket, SizeOf(TPacketQuery) + NameLength);
   Packet := @QueryPacket[0];
@@ -347,6 +348,7 @@ begin
   begin
     SockLen := SizeOf(AddrFrom);
     r := Chat.Sock.RecvFrom(@Buffer, BufferSizeUDP, 0, @AddrFrom, @SockLen);
+    Form1.Memo1.Append('Receivd: ' + UNetNetAddrToStr(AddrFrom.sin_addr) + ':' + IntToStr(NtoHs(AddrFrom.sin_port)));
     if r <= SizeOf(PacketBase) then Continue;
     if PacketBase.Marker <> Marker then Continue;
     case TPacketDesc(PacketBase.Desc) of
@@ -356,6 +358,7 @@ begin
       end;
       pd_query:
       begin
+        if r - SizeOf(PacketQuery) <> PacketQuery.NameLength then Continue;
         Chat.Sock.SendTo(@Chat.DiscoverPacket[0], Length(Chat.DiscoverPacket), 0, @AddrFrom, SizeOf(AddrFrom));
         SetLength(PeerName, PacketQuery.NameLength);
         Move(Buffer[SizeOf(PacketQuery)], PeerName[1], PacketQuery.NameLength);
@@ -363,6 +366,7 @@ begin
       end;
       pd_discover:
       begin
+        if r - SizeOf(PacketQuery) <> PacketQuery.NameLength then Continue;
         SetLength(PeerName, PacketQuery.NameLength);
         Move(Buffer[SizeOf(PacketQuery)], PeerName[1], PacketQuery.NameLength);
         Chat.AddPeer(PeerName, AddrFrom.sin_addr, UNetNetToHostShort(AddrFrom.sin_port));
@@ -441,6 +445,7 @@ begin
         @Chat.QueryPacket[0], Length(Chat.QueryPacket),
         0, @Addr, SizeOf(Addr)
       );
+      Form1.Memo1.Append('Broadcast: ' + UNetNetAddrToStr(Addr.sin_addr) + ':' + IntToStr(p));
     end;
     Event.WaitFor(5000);
   end;
@@ -460,6 +465,7 @@ end;
 procedure TForm1.FormCreate(Sender: TObject);
 begin
   Chat := TChat.Create;
+  Chat.Ptr.PortRange[1] := Chat.Ptr.PortRange[0] + 1;
   Timer := TTimer.Create(Self);
   Timer.OnTimer := @OnTimer;
   Timer.Enabled := True;
