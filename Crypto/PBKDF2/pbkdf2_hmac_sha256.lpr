@@ -40,8 +40,8 @@ begin;
   WriteLn('Salt (B64): ', SaltB64);
   WriteLn('Digest (Hex): ', UBytesToHex(Digest));
   WriteLn('Digest (B64):   ', UBytesToBase64(Digest));
-  WriteLn('Expected (B64): ', 'sSibEreK5a+qJ8/yVQ3Wk2GemAmo1A2fFyATjGmAnlU=');
-  //WriteLn('Expected (B64): ', 'gHn0OFf58FJES7/UbFK3ikuz18fgES7kYSSwkaCt5ok=');
+  WriteLn('Expected (B64): ', 'sSibEreK5a+qJ8/yVQ3Wk2GemAmo1A2fFyATjGmAnlU=');//600k
+  //WriteLn('Expected (B64): ', 'gHn0OFf58FJES7/UbFK3ikuz18fgES7kYSSwkaCt5ok=');//20k
 end;
 
 begin

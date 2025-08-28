@@ -47,7 +47,7 @@ procedure WriteSuccessOrFail(const a, b: String);
 // Test functions
 procedure TestSHA3_224;
   procedure Test(const Name: String; const Data: String; const Expected: String);
-    var Digest: TUSHA3_224Digest;
+    var Digest: TUDigestSHA3_224;
     var Actual: String;
   begin
     Digest := USHA3_224(Data);
@@ -85,7 +85,7 @@ end;
 
 procedure TestSHA3_256;
   procedure Test(const Name: String; const Data: String; const Expected: String);
-    var Digest: TUSHA3_256Digest;
+    var Digest: TUDigestSHA3_256;
     var Actual: String;
   begin
     Digest := USHA3_256(Data);
@@ -123,7 +123,7 @@ end;
 
 procedure TestSHA3_384;
   procedure Test(const Name: String; const Data: String; const Expected: String);
-    var Digest: TUSHA3_384Digest;
+    var Digest: TUDigestSHA3_384;
     var Actual: String;
   begin
     Digest := USHA3_384(Data);
@@ -161,7 +161,7 @@ end;
 
 procedure TestSHA3_512;
   procedure Test(const Name: String; const Data: String; const Expected: String);
-    var Digest: TUSHA3_512Digest;
+    var Digest: TUDigestSHA3_512;
     var Actual: String;
   begin
     Digest := USHA3_512(Data);

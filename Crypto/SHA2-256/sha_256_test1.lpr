@@ -22,7 +22,7 @@ begin
   end;
 end;
 
-function DigestToHexString(const Digest: TUSHA2_256Digest): String;
+function DigestToHexString(const Digest: TUDigestSHA2_256): String;
   var i: Int32;
 begin
   Result := '';
@@ -45,7 +45,7 @@ procedure TestSHA256;
       WriteLn('FAIL');
     end;
   end;
-  var Digest: TUSHA2_256Digest;
+  var Digest: TUDigestSHA2_256;
   var Actual, Expected: String;
 begin
   WriteLn('SHA-256 Test Results:');

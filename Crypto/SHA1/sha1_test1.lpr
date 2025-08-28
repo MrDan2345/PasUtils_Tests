@@ -11,7 +11,7 @@ uses
   CryptoUtils;
 
 procedure Run;
-  var Digest: TUSHA1Digest;
+  var Digest: TUDigestSHA1;
 begin
   Digest := USHA1('Hello World!');
   WriteLn('Digest:   ', LowerCase(UBytesToHex(Digest)));

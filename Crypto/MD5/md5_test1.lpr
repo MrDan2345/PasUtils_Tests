@@ -12,7 +12,7 @@ uses
   CryptoUtils;
 
 procedure Run;
-  var Digest: TUMD5Digest;
+  var Digest: TUDigestMD5;
 begin
   Digest := UMD5('Hello World!');
   WriteLn('Digest:   ', LowerCase(UBytesToHex(Digest)));

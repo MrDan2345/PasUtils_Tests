@@ -16,7 +16,7 @@ procedure Test;
   const KeyShort = '48c73398c61b0cbc92baddec1ff40e12a68c';
   var Key: TUInt8Array;
   var Message: TUInt8Array;
-  var Digest: TUSHA2_256Digest;
+  var Digest: TUDigestSHA2_256;
 begin
   Key := UStrToBytes(KeyLong);
   Message := UStrToBytes(MessageStr);

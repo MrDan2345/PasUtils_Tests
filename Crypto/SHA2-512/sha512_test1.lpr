@@ -12,7 +12,7 @@ uses
   CryptoUtils;
 
 procedure Run;
-  var Digest: TUSHA2_512Digest;
+  var Digest: TUDigestSHA2_512;
 begin
   Digest := USHA2_512('Hello World!');
   WriteLn('Digest:   ', LowerCase(UBytesToHex(Digest)));
