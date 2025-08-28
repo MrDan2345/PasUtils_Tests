@@ -61,7 +61,7 @@ begin
   Test := UImportRSAKey(Exp);
   CompareKeysPublic(Key, Test, 'X509'); WriteLn();
 
-  Exp := UExportRSAKey_PKCS8(Key, 'MyPassword');
+  Exp := UExportRSAKey_PKCS8(Key, 'MyPassword', 200000);
   WriteLn(Exp);
   Test := UImportRSAKey(Exp, 'MyPassword');
   CompareKeysPrivate(Key, Test, 'PKCS8 Encrypted'); WriteLn();
@@ -69,5 +69,8 @@ end;
 
 begin
   Run;
+{$if defined(windows)}
+  ReadLn;
+{$endif}
 end.
 

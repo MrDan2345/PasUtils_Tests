@@ -285,13 +285,10 @@ begin
   );
 end;
 
-procedure Run;
 begin
   RunAESTests;
-  //ReadLn;
-end;
-
-begin
-  Run;
+{$if defined(windows)}
+  ReadLn;
+{$endif}
 end.
 
