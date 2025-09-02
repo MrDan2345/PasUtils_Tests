@@ -65,6 +65,8 @@ private
   end;
   type TSendMessage = record
     var Id: UInt16;
+    var Addr: TUInAddr;
+    var Port: UInt16;
     var Chunks: array of record
       var Confirmed: Boolean;
       var Packet: TUInt8Array;
@@ -304,8 +306,10 @@ procedure TChat.Send(const Message: String);
   var ChunkCount, ChunkSize, ChunkRem: Int32;
   var CurId: UInt16;
   var SendMessage: TSendMessage;
-  var i, n, m: Int32;
+  var p, i, n, m: Int32;
+  var Receivers: TPeerArray;
 begin
+  Receivers := GetPeers;
   CurId := _MsgId;
   Inc(_MsgId);
   if _MsgId = $ffff then _MsgId := 1;
@@ -313,24 +317,29 @@ begin
   ChunkCount := Length(Message) div ChunkSize;
   ChunkRem := Length(Message) mod ChunkSize;
   if ChunkRem > 0 then Inc(ChunkCount);
-  SendMessage.Id := CurId;
-  SetLength(SendMessage.Chunks, ChunkCount);
-  ChunkRem := Length(Message);
-  m := 1;
-  for i := 0 to ChunkCount - 1 do
+  for p := 0 to High(Receivers) do
   begin
-    n := UMin(ChunkRem, ChunkSize);
-    ChunkRem -= n;
-    SendMessage.Chunks[i].Confirmed := False;
-    SetLength(SendMessage.Chunks[i].Packet, SizeOf(TPacketMessage) + n);
-    Msg := PPacketMessage(@SendMessage.Chunks[i].Packet[0]);
-    Msg^.Id := CurId;
-    Msg^.Marker := Marker;
-    Msg^.Desc := UInt8(pd_message);
-    Msg^.Count := UInt16(ChunkCount);
-    Msg^.Index := UInt16(i);
-    Move(Message[m], SendMessage.Chunks[i].Packet[SizeOf(TPacketMessage)], n);
-    m += n;
+    SendMessage.Id := CurId;
+    SendMessage.Addr := Receivers[p].Addr;
+    SendMessage.Port := Receivers[p].Port;
+    SetLength(SendMessage.Chunks, ChunkCount);
+    ChunkRem := Length(Message);
+    m := 1;
+    for i := 0 to ChunkCount - 1 do
+    begin
+      n := UMin(ChunkRem, ChunkSize);
+      ChunkRem -= n;
+      SendMessage.Chunks[i].Confirmed := False;
+      SetLength(SendMessage.Chunks[i].Packet, SizeOf(TPacketMessage) + n);
+      Msg := PPacketMessage(@SendMessage.Chunks[i].Packet[0]);
+      Msg^.Id := CurId;
+      Msg^.Marker := Marker;
+      Msg^.Desc := UInt8(pd_message);
+      Msg^.Count := UInt16(ChunkCount);
+      Msg^.Index := UInt16(i);
+      Move(Message[m], SendMessage.Chunks[i].Packet[SizeOf(TPacketMessage)], n);
+      m += n;
+    end;
   end;
 end;
 
