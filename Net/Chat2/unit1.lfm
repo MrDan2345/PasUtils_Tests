@@ -64,4 +64,15 @@ object Form1: TForm1
     TabOrder = 3
     OnClick = ButtonStartStop1Click
   end
+  object LabelDebugMsgQueue1: TLabel
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    Left = 531
+    Height = 20
+    Top = 13
+    Width = 160
+    Anchors = [akTop, akRight]
+    BorderSpacing.Right = 8
+    Caption = 'LabelDebugMsgQueue1'
+  end
 end
