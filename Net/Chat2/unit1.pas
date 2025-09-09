@@ -10,16 +10,17 @@ uses
 
 type TChat = class (TURefClass)
 public
-  type TPeer = record
-    Name: String;
-    Addr: TUInAddr;
-    Port: UInt16;
-    TimeStamp: UInt64;
-    class operator = (const a, b: TPeer): Boolean;
+  type TPeerId = record
+    var Name: String;
+    var Addr: TUInAddr;
+    var Port: UInt16;
+    class operator = (const a, b: TPeerId): Boolean;
+    function SockAddr: TUSockAddr;
+    function CmpAddr(const PeerAddr: TUInAddr; const PeerPort: UInt16): Boolean;
   end;
-  type TPeerArray = array of TPeer;
-  type TPeerEvent = procedure (const Peer: TPeer) of object;
-  type TMessageEvent = procedure (const Peer: TPeer; const Message: String) of object;
+  type TPeerIdArray = array of TPeerId;
+  type TPeerEvent = procedure (const Peer: TPeerId) of object;
+  type TMessageEvent = procedure (const Peer: TPeerId; const Message: String) of object;
 private
   const BufferSizeUDP = 1408;
   type TPacketDesc = (pd_ping, pd_pong, pd_close, pd_query, pd_discover, pd_received, pd_message);
@@ -83,16 +84,36 @@ private
   end;
   type TSendMessageArray = array of TSendMessage;
   type TPeerMessage = record
-    var Peer: TPeer;
+    var Peer: TPeerId;
     var Message: String;
   end;
+  type TMessageChunk = record
+    var Success: Boolean;
+    var Data: TUInt8Array;
+  end;
+  type TMessageSend = record
+    var Id: UInt16;
+    var TimeStamp: UInt64;
+    var Chunks: array of TMessageChunk;
+  end;
+  type TMessageRecv = record
+    var Id: UInt16;
+    var Chunks: array of TMessageChunk;
+  end;
+  type TPeer = record
+    var Id: TPeerId;
+    var TimeStamp: UInt64;
+    var QueueSend: array of TMessageSend;
+    var QueneRecv: array of TMessageRecv;
+  end;
+  type TPeerArray = array of TPeer;
   var _Name: String;
   var _Sock: TUSocket;
   var _Enabled: Boolean;
   var _PortRange: array[0..1] of UInt16;
   var _Peers: TPeerArray;
   var _PeersLock: TUCriticalSection;
-  var _NotifiedPeers: TPeerArray;
+  var _NotifiedPeers: TPeerIdArray;
   var _Messages: array of TPeerMessage;
   var _MessagesLock: TUCriticalSection;
   var _Listener: TListener;
@@ -129,17 +150,18 @@ private
   );
   procedure RemoveOldPeers;
   procedure NotifyPeers;
-  function GetPeers: TPeerArray;
+  function GetPeers: TPeerIdArray;
+  procedure ProcessMessages;
   procedure ProcessSendMessage(var Msg: TSendMessage);
-  procedure PeerAdded(const Peer: TPeer);
-  procedure PeerRemoved(const Peer: TPeer);
+  procedure PeerAdded(const Peer: TPeerId);
+  procedure PeerRemoved(const Peer: TPeerId);
   procedure Update;
 public
   property Name: String read _Name write _Name;
   property Sock: TUSocket read _Sock;
   property Enabled: Boolean read _Enabled write SetEnabled;
   property PortRange[const Index: Int8]: UInt16 read GetPortRange write SetPortRange;
-  property Peers: TPeerArray read GetPeers;
+  property Peers: TPeerIdArray read GetPeers;
   property OnPeerJoined: TPeerEvent read _OnPeerJoined write _OnPeerJoined;
   property OnPeerLeft: TPeerEvent read _OnPeerLeft write _OnPeerLeft;
   property OnMessge: TMessageEvent read _OnMessage write _OnMessage;
@@ -152,12 +174,14 @@ type TChatShared = specialize TUSharedRef<TChat>;
 
 type TForm1 = class(TForm)
   Button1: TButton;
+  Button2: TButton;
   ButtonStartStop1: TButton;
   Edit1: TEdit;
   LabelDebugMsgQueue1: TLabel;
   Memo1: TMemo;
   Timer: TTimer;
   procedure Button1Click(Sender: TObject);
+  procedure Button2Click(Sender: TObject);
   procedure ButtonStartStop1Click(Sender: TObject);
   procedure Edit1KeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
   procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
@@ -165,9 +189,9 @@ type TForm1 = class(TForm)
 private
   var Chat: TChatShared;
   procedure OnTimer(Sender: TObject);
-  procedure OnPeerJoined(const Peer: TChat.TPeer);
-  procedure OnPeerLeft(const Peer: TChat.TPeer);
-  procedure OnMessage(const Peer: TChat.TPeer; const Message: String);
+  procedure OnPeerJoined(const Peer: TChat.TPeerId);
+  procedure OnPeerLeft(const Peer: TChat.TPeerId);
+  procedure OnMessage(const Peer: TChat.TPeerId; const Message: String);
   procedure SendMessage(const Msg: String);
 public
 
@@ -253,11 +277,9 @@ begin
   _Listener.Terminate;
   _Update.Terminate;
   _Query.WaitFor;
-  SockAddr := TUSockAddr.Default;
   for i := 0 to High(_Peers) do
   begin
-    SockAddr.sin_addr := _Peers[i].Addr;
-    SockAddr.sin_port := HtoNs(_Peers[i].Port);
+    SockAddr := _Peers[i].Id.SockAddr;
     _Sock.SendTo(@PacketClose, SizeOf(PacketClose), 0, @SockAddr, SizeOf(SockAddr));
   end;
   _Sock.Shutdown();
@@ -317,7 +339,7 @@ begin
   try
     p := FindPeerNL(PeerAddr, PeerPort);
     if p = -1 then Exit;
-    PeerMessage.Peer := _Peers[p];
+    PeerMessage.Peer := _Peers[p].Id;
   finally
     _PeersLock.Leave;
   end;
@@ -351,15 +373,11 @@ begin
         Rem := False;
         Break;
       end;
-      if Rem then
-      begin
-        specialize UArrDelete<TSendMessageChunk>(Chunks, j);
-      end;
+      if not Rem then Continue;
+      specialize UArrDelete<TSendMessageChunk>(Chunks, j);
     end;
-    if Length(_SendMessageQueue[i].Chunks) = 0 then
-    begin
-      specialize UArrDelete<TSendMessage>(_SendMessageQueue, i);
-    end;
+    if Length(_SendMessageQueue[i].Chunks) > 0 then Continue;
+    specialize UArrDelete<TSendMessage>(_SendMessageQueue, i);
   end;
 end;
 
@@ -367,8 +385,7 @@ function TChat.FindPeerNL(const PeerAddr: TUInAddr; const PeerPort: UInt16): Int
   var i: Int32;
 begin
   for i := 0 to High(_Peers) do
-  if (_Peers[i].Addr = PeerAddr)
-  and (_Peers[i].Port = PeerPort) then
+  if _Peers[i].Id.CmpAddr(PeerAddr, PeerPort) then
   begin
     Exit(i);
   end;
@@ -388,10 +405,10 @@ begin
     begin
       Result := Length(_Peers);
       SetLength(_Peers, Result + 1);
-      _Peers[Result].Addr := PeerAddr;
-      _Peers[Result].Port := PeerPort;
+      _Peers[Result].Id.Addr := PeerAddr;
+      _Peers[Result].Id.Port := PeerPort;
     end;
-    _Peers[Result].Name := PeerName;
+    _Peers[Result].Id.Name := PeerName;
     _Peers[Result].TimeStamp := GetTickCount64;
     //WriteLn(PeerName);
   finally
@@ -430,7 +447,7 @@ begin
 end;
 
 procedure TChat.NotifyPeers;
-  function FindPeer(const PeerArray: TPeerArray; const Peer: TPeer): Int32;
+  function FindPeer(const PeerArray: TPeerIdArray; const Peer: TPeerId): Int32;
     var i: Int32;
   begin
     for i := 0 to High(PeerArray) do
@@ -440,7 +457,7 @@ procedure TChat.NotifyPeers;
     end;
     Result := -1;
   end;
-  var CurPeers: TPeerArray;
+  var CurPeers: TPeerIdArray;
   var i: Int32;
 begin
   CurPeers := GetPeers;
@@ -448,17 +465,17 @@ begin
   if FindPeer(_NotifiedPeers, CurPeers[i]) = -1 then
   begin
     PeerAdded(CurPeers[i]);
-    specialize UArrAppend<TPeer>(_NotifiedPeers, CurPeers[i]);
+    specialize UArrAppend<TPeerId>(_NotifiedPeers, CurPeers[i]);
   end;
   for i := High(_NotifiedPeers) downto 0 do
   if FindPeer(CurPeers, _NotifiedPeers[i]) = -1 then
   begin
     PeerRemoved(_NotifiedPeers[i]);
-    specialize UArrDelete<TPeer>(_NotifiedPeers, i);
+    specialize UArrDelete<TPeerId>(_NotifiedPeers, i);
   end;
 end;
 
-function TChat.GetPeers: TPeerArray;
+function TChat.GetPeers: TPeerIdArray;
   var i: Int32;
 begin
   Result := nil;
@@ -467,7 +484,39 @@ begin
     SetLength(Result, Length(_Peers));
     for i := 0 to High(_Peers) do
     begin
-      Result[i] := _Peers[i];
+      Result[i] := _Peers[i].Id;
+    end;
+  finally
+    _PeersLock.Leave;
+  end;
+end;
+
+procedure TChat.ProcessMessages;
+  var SockAddr: TUSockAddr;
+  var p, m, c: Int32;
+  var t: UInt64;
+begin
+  t := GetTickCount64;
+  _PeersLock.Enter;
+  try
+    for p := 0 to High(_Peers) do
+    begin
+      SockAddr := _Peers[p].Id.SockAddr;
+      with _Peers[p] do
+      for m := 0 to High(QueueSend) do
+      with QueueSend[m] do
+      if t - TimeStamp > 2000 then
+      begin
+        TimeStamp := t;
+        for c := 0 to High(Chunks) do
+        if not Chunks[c].Success then
+        begin
+          _Sock.SendTo(
+            @Chunks[c].Data[0], Length(Chunks[c].Data),
+            0, @SockAddr, SizeOf(SockAddr)
+          );
+        end;
+      end;
     end;
   finally
     _PeersLock.Leave;
@@ -493,13 +542,13 @@ begin
   end;
 end;
 
-procedure TChat.PeerAdded(const Peer: TPeer);
+procedure TChat.PeerAdded(const Peer: TPeerId);
 begin
   WriteLn('Peer added: ', Peer.Name);
   if Assigned(_OnPeerJoined) then _OnPeerJoined(Peer);
 end;
 
-procedure TChat.PeerRemoved(const Peer: TPeer);
+procedure TChat.PeerRemoved(const Peer: TPeerId);
   var i, j, p: Int32;
 begin
   WriteLn('Peer removed: ', Peer.Name);
@@ -556,10 +605,9 @@ procedure TChat.Send(const Message: String);
   type PPacketMessage = ^TPacketMessage;
   var Msg: PPacketMessage;
   var ChunkCount, ChunkSize, ChunkRem: Int32;
+  var SendMessage: TMessageSend;
   var CurId: UInt16;
-  var SendMessage: TSendMessage;
   var p, i, n, m: Int32;
-  var Receivers: TPeerArray;
 begin
   Receivers := GetPeers;
   CurId := _MsgId;
@@ -573,30 +621,36 @@ begin
   SendMessage.Timestamp := 0;
   SetLength(SendMessage.Chunks, ChunkCount);
   ChunkRem := Length(Message);
+  SendMessage.Id := CurId;
+  SetLength(SendMessage.Chunks, ChunkCount);
   m := 1;
+  with SendMessage do
   for i := 0 to ChunkCount - 1 do
   begin
-    SetLength(SendMessage.Chunks[i].Receivers, Length(Receivers));
-    for p := 0 to High(Receivers) do
-    begin
-      SendMessage.Chunks[i].Receivers[p].Confirmed := False;
-      SendMessage.Chunks[i].Receivers[p].Addr := Receivers[p].Addr;
-      SendMessage.Chunks[i].Receivers[p].Port := Receivers[p].Port;
-    end;
+    Chunks[i].Success := False;
     n := UMin(ChunkRem, ChunkSize);
-    ChunkRem -= n;
-    SetLength(SendMessage.Chunks[i].Packet, SizeOf(TPacketMessage) + n);
-    Msg := PPacketMessage(@SendMessage.Chunks[i].Packet[0]);
+    SetLength(Chunks[i].Data, SizeOf(TPacketMessage) + n);
+    Msg := PPacketMessage(@Chunks[i].Data[0]);
     Msg^.Id := CurId;
     Msg^.Marker := Marker;
     Msg^.Desc := UInt8(pd_message);
     Msg^.Count := UInt16(ChunkCount);
     Msg^.Index := UInt16(i);
-    Move(Message[m], SendMessage.Chunks[i].Packet[SizeOf(TPacketMessage)], n);
+    Move(Message[m], Chunks[i].Packet[SizeOf(TPacketMessage)], n);
     m += n;
   end;
-  i := specialize UArrAppend<TSendMessage>(_SendMessageQueue, SendMessage);
-  ProcessSendMessage(_SendMessageQueue[i]);
+  _PeersLock.Enter;
+  try
+    for i := 0 to High(_Peers) do
+    begin
+      specialize UArrAppend<TMessageSend>(
+        _Peers[i].QueueSend, SendMessage
+      );
+    end;
+  finally
+    _PeersLock.Leave;
+  end;
+  ProcessSendMessages;
 end;
 
 constructor TChat.Create;
@@ -619,9 +673,21 @@ begin
   Result := Length(_SendMessageQueue);
 end;
 
-class operator TChat.TPeer.=(const a, b: TPeer): Boolean;
+class operator TChat.TPeerId.=(const a, b: TPeerId): Boolean;
 begin
   Result := (a.Addr = b.Addr) and (a.Port = b.Port);
+end;
+
+function TChat.TPeerId.SockAddr: TUSockAddr;
+begin
+  Result := TUSockAddr.Default;
+  Result.sin_addr := Addr;
+  Result.sin_port := HtoNs(Port);
+end;
+
+function TChat.TPeerId.CmpAddr(const PeerAddr: TUInAddr; const PeerPort: UInt16): Boolean;
+begin
+  Result := (Addr = PeerAddr) and (Port = PeerPort);
 end;
 
 procedure TChat.TListener.Execute;
@@ -647,11 +713,8 @@ procedure TChat.TListener.Execute;
     if Result > -1 then Exit;
     Result := Length(MultiPackets);
     SetLength(MultiPackets, Result + 1);
-    with MultiPackets[Result] do
-    begin
-      Id := Id;
-      SetLength(Chunks, ChunkCount);
-    end;
+    MultiPackets[Result].Id := Id;
+    SetLength(MultiPackets[Result].Chunks, ChunkCount);
   end;
   procedure AddMultiChunk(var MultiPacket: TMultiPacket; const Index: UInt16; const Data: TUInt8Array);
   begin
@@ -843,17 +906,17 @@ begin
   LabelDebugMsgQueue1.Caption := 'Message Queue: ' + IntToStr(Chat.Ptr.DebugMessageQueue);
 end;
 
-procedure TForm1.OnPeerJoined(const Peer: TChat.TPeer);
+procedure TForm1.OnPeerJoined(const Peer: TChat.TPeerId);
 begin
   Memo1.Append(Peer.Name + ' Joined');
 end;
 
-procedure TForm1.OnPeerLeft(const Peer: TChat.TPeer);
+procedure TForm1.OnPeerLeft(const Peer: TChat.TPeerId);
 begin
   Memo1.Append(Peer.Name + ' Left');
 end;
 
-procedure TForm1.OnMessage(const Peer: TChat.TPeer; const Message: String);
+procedure TForm1.OnMessage(const Peer: TChat.TPeerId; const Message: String);
 begin
   Memo1.Append('[' + Peer.Name + ']: ' + Message);
 end;
@@ -896,6 +959,15 @@ begin
   if Length(Edit1.Text) = 0 then Exit;
   SendMessage(Edit1.Text);
   Edit1.Text := '';
+end;
+
+procedure TForm1.Button2Click(Sender: TObject);
+  var Buffer: String;
+  var i: Int32;
+begin
+  SetLength(Buffer, 2000);
+  for i := 1 to Length(Buffer) do Buffer[i] := 'A';
+  SendMessage(Buffer);
 end;
 
 end.
