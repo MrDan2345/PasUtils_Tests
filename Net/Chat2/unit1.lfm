@@ -70,7 +70,7 @@ object Form1: TForm1
     AnchorSideRight.Side = asrBottom
     Left = 706
     Height = 20
-    Top = 10
+    Top = 0
     Width = 160
     Anchors = [akTop, akRight]
     BorderSpacing.Right = 8
@@ -84,5 +84,16 @@ object Form1: TForm1
     Caption = 'Test'
     TabOrder = 4
     OnClick = Button2Click
+  end
+  object LabelDebugMsgQueue2: TLabel
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    Left = 706
+    Height = 20
+    Top = 24
+    Width = 160
+    Anchors = [akTop, akRight]
+    BorderSpacing.Right = 8
+    Caption = 'LabelDebugMsgQueue2'
   end
 end

@@ -23,6 +23,7 @@ public
   type TMessageEvent = procedure (const Peer: TPeerId; const Message: String) of object;
 private
   const BufferSizeUDP = 1408;
+  //const BufferSizeUDP = 32;
   const MaxNameLength: UInt8 = 255;
   type TBucketData = packed record
     var Addr: TUInAddr;
@@ -77,6 +78,7 @@ private
   private
     var Event: TUEvent;
   public
+    var Rate: UInt32;
     var Chat: TChat;
     procedure Execute; override;
     procedure TerminatedSet; override;
@@ -85,31 +87,11 @@ private
   private
     var Event: TUEvent;
   public
-    var Chat: TChat;
-    var UpdateRate: UInt32;
+    var Rate: UInt32;
     var OnUpdate: TUProcedure;
     procedure Execute; override;
     procedure TerminatedSet; override;
     procedure Push;
-  end;
-  type TMessageReceiver = record
-    var Confirmed: Boolean;
-    var Addr: TUInAddr;
-    var Port: UInt16;
-  end;
-  type TSendMessageChunk = record
-    var Receivers: array of TMessageReceiver;
-    var Packet: TUInt8Array;
-  end;
-  type TSendMessage = record
-    var Id: UInt16;
-    var Timestamp: UInt64;
-    var Chunks: array of TSendMessageChunk;
-  end;
-  type TSendMessageArray = array of TSendMessage;
-  type TPeerMessage = record
-    var Peer: TPeerId;
-    var Message: String;
   end;
   type TMessageChunk = record
     var Success: Boolean;
@@ -215,7 +197,8 @@ public
   procedure Send(const Message: String);
   constructor Create;
   destructor Destroy; override;
-  function DebugMessageQueue: Int32;
+  function DebugSendQueue: Int32;
+  function DebugRecvQueue: Int32;
 end;
 type TChatShared = specialize TUSharedRef<TChat>;
 
@@ -225,6 +208,7 @@ type TForm1 = class(TForm)
   ButtonStartStop1: TButton;
   Edit1: TEdit;
   LabelDebugMsgQueue1: TLabel;
+  LabelDebugMsgQueue2: TLabel;
   Memo1: TMemo;
   Timer: TTimer;
   procedure Button1Click(Sender: TObject);
@@ -301,13 +285,13 @@ begin
   Packet := @DiscoverPacket[0];
   Packet^.Desc := UInt8(pd_discover);
   _Update := TUpdate.Create(True);
-  _Update.Chat := Self;
   _Update.OnUpdate := @Update;
-  _Update.UpdateRate := 100;
+  _Update.Rate := 100;
   _Listener := TListener.Create(True);
   _Listener.Chat := Self;
   _Query := TQuery.Create(True);
   _Query.Chat := Self;
+  _Query.Rate := 10000;
   _Update.Start;
   _Listener.Start;
   _Query.Start;
@@ -441,7 +425,7 @@ begin
         MsgFull := Queues.Recv[i].Assemble;
         MsgStr := '';
         SetLength(MsgStr, Length(MsgFull));
-        Move(Msg[0], MsgStr[1], Length(MsgFull));
+        Move(MsgFull[0], MsgStr[1], Length(MsgFull));
         _OnMessage(Id, MsgStr);
       end;
     end;
@@ -755,6 +739,7 @@ begin
   begin
     Chunks[i].Success := False;
     n := UMin(ChunkRem, ChunkSize);
+    ChunkRem -= n;
     SetLength(Chunks[i].Data, SizeOf(TPacketChunkMsg) + n);
     Msg := PPacketMessage(@Chunks[i].Data[0]);
     Msg^.Id := CurId;
@@ -790,9 +775,24 @@ begin
   inherited Destroy;
 end;
 
-function TChat.DebugMessageQueue: Int32;
+function TChat.DebugSendQueue: Int32;
+  var i: Int32;
 begin
-  Result := 0;//Length(_SendMessageQueue);
+  Result := 0;
+  for i := 0 to High(_Peers) do
+  begin
+    Result += Length(_Peers[i].Queues.Send);
+  end;
+end;
+
+function TChat.DebugRecvQueue: Int32;
+  var i: Int32;
+begin
+  Result := 0;
+  for i := 0 to High(_Peers) do
+  begin
+    Result += Length(_Peers[i].Queues.Recv);
+  end;
 end;
 
 class operator TChat.TPeerId.=(const a, b: TPeerId): Boolean;
@@ -860,7 +860,7 @@ begin
       );
       //WriteLn('Broadcast: ', UNetNetAddrToStr(Addr.sin_addr) + ':', p);
     end;
-    Event.WaitFor(5000);
+    Event.WaitFor(Rate);
   end;
 end;
 
@@ -876,7 +876,7 @@ begin
   while not Terminated do
   begin
     if Assigned(OnUpdate) then Synchronize(OnUpdate);
-    Event.WaitFor(UpdateRate);
+    Event.WaitFor(Rate);
     Event.Unsignal;
   end;
 end;
@@ -968,7 +968,8 @@ end;
 
 procedure TForm1.OnTimer(Sender: TObject);
 begin
-  LabelDebugMsgQueue1.Caption := 'Message Queue: ' + IntToStr(Chat.Ptr.DebugMessageQueue);
+  LabelDebugMsgQueue1.Caption := 'Recv Queue: ' + IntToStr(Chat.Ptr.DebugRecvQueue);
+  LabelDebugMsgQueue2.Caption := 'Send Queue: ' + IntToStr(Chat.Ptr.DebugSendQueue);
 end;
 
 procedure TForm1.OnPeerJoined(const Peer: TChat.TPeerId);
@@ -1028,10 +1029,14 @@ end;
 
 procedure TForm1.Button2Click(Sender: TObject);
   var Buffer: String;
-  var i: Int32;
+  var i, n: Int32;
 begin
-  SetLength(Buffer, 2000);
-  for i := 1 to Length(Buffer) do Buffer[i] := 'A';
+  SetLength(Buffer, 50);
+  n := Ord('Z') - Ord('A') + 1;
+  for i := 1 to Length(Buffer) do
+  begin
+    Buffer[i] := Char(Ord('A') + ((i - 1) mod n));
+  end;
   SendMessage(Buffer);
 end;
 
