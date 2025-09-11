@@ -6,7 +6,15 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, ExtCtrls, StdCtrls,
-  CommonUtils, NetUtils, LCLType;
+  CommonUtils, NetUtils,
+  {$if defined(windows)}
+  Windows,
+  ShellApi,
+  {$elseif defined(linux)}
+  X, XLib, XUtil,
+  gdk2x, gtk2,
+  {$endif}
+  LCLType;
 
 type TChat = class (TURefClass)
 public
@@ -176,12 +184,18 @@ private
     const MsgId: UInt16;
     const Success: Boolean
   );
-  function FindPeerNL(const PeerAddr: TUInAddr; const PeerPort: UInt16): Int32;
+  function FindPeer(
+    const PeerAddr: TUInAddr;
+    const PeerPort: UInt16
+  ): Int32;
   function AddPeer(
     const PeerName: String;
     const PeerAddr: TUInAddr;
     const PeerPort: UInt16
   ): Int32;
+  procedure RemovePeer(
+    const PeerIndex: Int32
+  );
   procedure RemoveOldPeers;
   function GetPeers: TPeerIdArray;
   procedure ProcessPackets;
@@ -209,6 +223,7 @@ type TChatShared = specialize TUSharedRef<TChat>;
 type TForm1 = class(TForm)
   Button1: TButton;
   Button2: TButton;
+  Button3: TButton;
   ButtonStartStop1: TButton;
   Edit1: TEdit;
   LabelDebugMsgQueue1: TLabel;
@@ -217,6 +232,7 @@ type TForm1 = class(TForm)
   Timer: TTimer;
   procedure Button1Click(Sender: TObject);
   procedure Button2Click(Sender: TObject);
+  procedure Button3Click(Sender: TObject);
   procedure ButtonStartStop1Click(Sender: TObject);
   procedure Edit1KeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
   procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
@@ -228,6 +244,7 @@ private
   procedure OnPeerLeft(const Peer: TChat.TPeerId);
   procedure OnMessage(const Peer: TChat.TPeerId; const Message: String);
   procedure SendMessage(const Msg: String);
+  procedure Notify;
 public
 
 end;
@@ -434,9 +451,7 @@ begin
       if Assigned(_OnMessage) then
       begin
         MsgFull := Queues.Recv[i].Assemble;
-        MsgStr := '';
-        SetLength(MsgStr, Length(MsgFull));
-        Move(MsgFull[0], MsgStr[1], Length(MsgFull));
+        MsgStr := UBytesToString(MsgFull);
         _OnMessage(Id, MsgStr);
       end;
     end;
@@ -502,7 +517,7 @@ begin
   end;
 end;
 
-function TChat.FindPeerNL(const PeerAddr: TUInAddr; const PeerPort: UInt16): Int32;
+function TChat.FindPeer(const PeerAddr: TUInAddr; const PeerPort: UInt16): Int32;
   var i: Int32;
 begin
   for i := 0 to High(_Peers) do
@@ -521,7 +536,7 @@ function TChat.AddPeer(
   var NewPeer: Boolean;
 begin
   NewPeer := False;
-  Result := FindPeerNL(PeerAddr, PeerPort);
+  Result := FindPeer(PeerAddr, PeerPort);
   if Result = -1 then
   begin
     Result := Length(_Peers);
@@ -538,6 +553,12 @@ begin
   end;
 end;
 
+procedure TChat.RemovePeer(const PeerIndex: Int32);
+begin
+  PeerRemoved(_Peers[PeerIndex].Id);
+  specialize UArrDelete<TPeer>(_Peers, PeerIndex);
+end;
+
 procedure TChat.RemoveOldPeers;
   var i: Int32;
   var t: UInt64;
@@ -546,8 +567,7 @@ begin
   for i := High(_Peers) downto 0 do
   if t - _Peers[i].TimeStamp > 15000 then
   begin
-    PeerRemoved(_Peers[i].Id);
-    specialize UArrDelete<TPeer>(_Peers, i);
+    RemovePeer(i);
   end;
 end;
 
@@ -575,7 +595,7 @@ procedure TChat.ProcessPackets;
     var PeerIndex: Int32;
     var SockAddr: TUSockAddr;
   begin
-    PeerIndex := FindPeerNL(Packet.Addr, Packet.Port);
+    PeerIndex := FindPeer(Packet.Addr, Packet.Port);
     SockAddr := TUSockAddr.Default;
     SockAddr.sin_addr := Packet.Addr;
     SockAddr.sin_port := HtoNs(Packet.Port);
@@ -587,7 +607,7 @@ procedure TChat.ProcessPackets;
       pd_close:
       begin
         if PeerIndex = -1 then Exit;
-        specialize UArrDelete<TPeer>(_Peers, PeerIndex);
+        RemovePeer(PeerIndex);
       end;
       pd_query:
       begin
@@ -987,6 +1007,7 @@ end;
 procedure TForm1.OnMessage(const Peer: TChat.TPeerId; const Message: String);
 begin
   Memo1.Append('[' + Peer.Name + ']: ' + Message);
+  Notify;
 end;
 
 procedure TForm1.SendMessage(const Msg: String);
@@ -994,6 +1015,52 @@ begin
   Chat.Ptr.Send(Msg);
   Memo1.Append('[' + Chat.Ptr.Name + ']: ' + Msg);
 end;
+
+procedure TForm1.Notify;
+{$if defined(windows)}
+  var fwi: TFLASHWINFO;
+begin
+  fwi := Default(TFLASHWINFO);
+  fwi.cbSize := SizeOf(TFLASHWINFO);
+  {$push}{$warn 5044 off}
+  fwi.hwnd := Application.Handle;
+  {$pop}
+  fwi.dwFlags := FLASHW_ALL or FLASHW_TIMERNOFG;
+  fwi.uCount := 2;
+  fwi.dwTimeout := 0;
+  FlashWindowEx(@fwi);
+end;
+{$elseif defined(linux)}
+  function AsPtr(const Address: PtrUInt): Pointer;
+    var Ptr: Pointer absolute Address;
+  begin
+    Result := Ptr;
+  end;
+  var Widget: PGtkWidget;
+  var Display: PDisplay;
+  var Window: TWindow;
+  var Hints: PXWMHints;
+begin
+  Display := XOpenDisplay(nil);
+  try
+    Widget := PGtkWidget(AsPtr(Handle));
+    if not Assigned(Widget) then Exit;
+    if not Assigned(Widget^.window) then Exit;
+    Window := GDK_WINDOW_XWINDOW(Widget^.window);
+    Hints := XGetWMHints(Display, Window);
+    if not Assigned(Hints) then Hints := XAllocWMHints();
+    Hints^.flags := Hints^.flags or XUrgencyHint;
+    XSetWMHints(Display, Window, Hints);
+    XFree(Hints);
+    XFlush(Display);
+  finally
+    XCloseDisplay(Display);
+  end;
+end;
+{$else}
+begin
+end;
+{$endif}
 
 procedure TForm1.FormClose(Sender: TObject; var CloseAction: TCloseAction);
 begin
@@ -1041,6 +1108,11 @@ begin
     Buffer[i] := Char(Ord('A') + ((i - 1) mod n));
   end;
   SendMessage(Buffer);
+end;
+
+procedure TForm1.Button3Click(Sender: TObject);
+begin
+  Notify;
 end;
 
 end.
