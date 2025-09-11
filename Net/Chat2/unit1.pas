@@ -25,15 +25,16 @@ private
   const BufferSizeUDP = 1408;
   //const BufferSizeUDP = 32;
   const MaxNameLength: UInt8 = 255;
-  type TBucketData = packed record
+  type TPacketData = packed record
     var Addr: TUInAddr;
     var Port: UInt16;
     var Size: UInt16;
-    var Packet: array[0..BufferSizeUDP - 1] of UInt8;
+    var Data: array[0..BufferSizeUDP - 1] of UInt8;
   end;
-  type TBuckets = specialize TULinkedList<TBucketData>;
-  type TBucket = TBuckets.TItem;
+  type TPackets = specialize TULinkedList<TPacketData>;
+  type TPacket = TPackets.TItem;
   type TPacketDesc = (
+    pd_invalid,
     pd_ping,
     pd_pong,
     pd_close,
@@ -44,30 +45,32 @@ private
     pd_cmpl_req,
     pd_cmpl_ack
   );
-  type TPacketBase = packed object
+  type THeaderBase = packed object
     var Marker: array[0..3] of AnsiChar;
+    var Version: UInt16;
     var Desc: UInt8;
   end;
-  type TPacketMessage = packed object (TPacketBase)
+  type THeaderMessage = packed object (THeaderBase)
     var Id: UInt16;
   end;
-  type TPacketMessageCfrm = packed object (TPacketMessage)
+  type THeaderMessageCfrm = packed object (THeaderMessage)
     var Success: Boolean;
   end;
-  type TPacketChunkMsg = packed object (TPacketMessage)
+  type THeaderChunkMsg = packed object (THeaderMessage)
     var Index: UInt16;
     var Count: UInt16;
   end;
-  type TPacketChunkCfrm = packed object (TPacketMessage)
+  type THeaderChunkCfrm = packed object (THeaderMessage)
     var Index: UInt16;
   end;
-  type TPacketQuery = packed object (TPacketBase)
+  type THeaderQuery = packed object (THeaderBase)
     var NameLength: UInt8;
   end;
   const Marker = 'UNCP';
-  const PacketPing: TPacketBase = (Marker: Marker; Desc: UInt8(pd_ping));
-  const PacketPong: TPacketBase = (Marker: Marker; Desc: UInt8(pd_pong));
-  const PacketClose: TPacketBase = (Marker: Marker; Desc: UInt8(pd_close));
+  const Version = $0001;
+  const PacketPing: THeaderBase = (Marker: Marker; Version: Version; Desc: UInt8(pd_ping));
+  const PacketPong: THeaderBase = (Marker: Marker; Version: Version; Desc: UInt8(pd_pong));
+  const PacketClose: THeaderBase = (Marker: Marker; Version: Version; Desc: UInt8(pd_close));
   type TListener = class (TThread)
   public
     var Chat: TChat;
@@ -124,7 +127,7 @@ private
   var _Sock: TUSocket;
   var _Enabled: Boolean;
   var _PortRange: array[0..1] of UInt16;
-  var _Queue: TBuckets;
+  var _Queue: TPackets;
   var _QueueLock: TUCriticalSection;
   var _Peers: TPeerArray;
   var _Listener: TListener;
@@ -145,6 +148,7 @@ private
   procedure SetEnabled(const Value: Boolean);
   function GetPortRange(const Index: Int8): UInt16;
   procedure SetPortRange(const Index: Int8; const Value: UInt16);
+  procedure InitBasePacket(const Packet: Pointer; const Desc: TPacketDesc = pd_invalid);
   procedure AddBucket(
     const PeerAddr: TUInAddr;
     const PeerPort: UInt16;
@@ -245,7 +249,7 @@ begin
 end;
 
 procedure TChat.Start;
-  type PPacketQuery = ^TPacketQuery;
+  type PPacketQuery = ^THeaderQuery;
   var r: Int32;
   var p: UInt16;
   var Addr: TUSockAddr;
@@ -274,12 +278,11 @@ begin
   end;
   WriteLn('Listening: ', _MyPort);
   NameLength := UMin(Length(_Name), 40);
-  SetLength(QueryPacket, SizeOf(TPacketQuery) + NameLength);
+  SetLength(QueryPacket, SizeOf(THeaderQuery) + NameLength);
   Packet := @QueryPacket[0];
-  Packet^.Marker := Marker;
-  Packet^.Desc := UInt8(pd_query);
+  InitBasePacket(Packet, pd_query);
   Packet^.NameLength := NameLength;
-  Move(_Name[1], QueryPacket[SizeOf(TPacketQuery)], NameLength);
+  Move(_Name[1], QueryPacket[SizeOf(THeaderQuery)], NameLength);
   SetLength(DiscoverPacket, Length(QueryPacket));
   Move(QueryPacket[0], DiscoverPacket[0], Length(QueryPacket));
   Packet := @DiscoverPacket[0];
@@ -291,7 +294,7 @@ begin
   _Listener.Chat := Self;
   _Query := TQuery.Create(True);
   _Query.Chat := Self;
-  _Query.Rate := 10000;
+  _Query.Rate := 5000;
   _Update.Start;
   _Listener.Start;
   _Query.Start;
@@ -338,13 +341,21 @@ begin
   _PortRange[Index] := Value;
 end;
 
+procedure TChat.InitBasePacket(const Packet: Pointer; const Desc: TPacketDesc);
+  var Base: ^THeaderBase absolute Packet;
+begin
+  Base^.Marker := Marker;
+  Base^.Version := Version;
+  Base^.Desc := UInt8(Desc);
+end;
+
 procedure TChat.AddBucket(
   const PeerAddr: TUInAddr;
   const PeerPort: UInt16;
   const Buffer: Pointer;
   const Size: UInt16
 );
-  var Bucket: TBucket;
+  var Bucket: TPacket;
 begin
   _QueueLock.Enter;
   try
@@ -354,7 +365,7 @@ begin
       Data.Addr := PeerAddr;
       Data.Port := PeerPort;
       Data.Size := Size;
-      Move(Buffer^, Data.Packet, Size);
+      Move(Buffer^, Data.Data, Size);
     end;
   finally
     _QueueLock.Leave;
@@ -411,7 +422,7 @@ procedure TChat.ReceiveMessage(
   var i: Int32;
   var MsgFull: TUInt8Array;
   var MsgStr: String;
-  var PacketRcv: TPacketChunkCfrm;
+  var PacketRcv: THeaderChunkCfrm;
   var SockAddr: TUSockAddr;
 begin
   i := FindOrCreateMultiPacket;
@@ -431,8 +442,7 @@ begin
     end;
   end;
   SockAddr := _Peers[PeerIndex].Id.SockAddr;
-  PacketRcv.Marker := Marker;
-  PacketRcv.Desc := UInt8(pd_received);
+  InitBasePacket(@PacketRcv, pd_received);
   PacketRcv.Id := MsgId;
   PacketRcv.Index := ChunkIndex;
   _Sock.SendTo(
@@ -443,11 +453,10 @@ end;
 
 procedure TChat.ConfirmMessage(const PeerIndex: Int32; const MsgId: UInt16);
   var i: Int32;
-  var PacketCfrm: TPacketMessageCfrm;
+  var PacketCfrm: THeaderMessageCfrm;
   var SockAddr: TUSockAddr;
 begin
-  PacketCfrm.Marker := Marker;
-  PacketCfrm.Desc := UInt8(pd_cmpl_ack);
+  InitBasePacket(@PacketCfrm, pd_cmpl_ack);
   PacketCfrm.Id := MsgId;
   PacketCfrm.Success := True;
   i := _Peers[PeerIndex].FindRecv(MsgId);
@@ -554,12 +563,12 @@ begin
 end;
 
 procedure TChat.ProcessBuckets;
-  procedure ProcessBucket(const Bucket: TBucketData);
-    var PacketBase: TPacketBase absolute Bucket.Packet;
-    var PacketMessage: TPacketChunkMsg absolute Bucket.Packet;
-    var PacketReceived: TPacketChunkCfrm absolute Bucket.Packet;
-    var PacketQuery: TPacketQuery absolute Bucket.Packet;
-    var PacketCfrm: TPacketMessageCfrm absolute Bucket.Packet;
+  procedure ProcessBucket(const Bucket: TPacketData);
+    var PacketBase: THeaderBase absolute Bucket.Data;
+    var PacketMessage: THeaderChunkMsg absolute Bucket.Data;
+    var PacketReceived: THeaderChunkCfrm absolute Bucket.Data;
+    var PacketQuery: THeaderQuery absolute Bucket.Data;
+    var PacketCfrm: THeaderMessageCfrm absolute Bucket.Data;
     var PkCount, PkIndex: UInt16;
     var Msg: TUInt8Array;
     var PeerName: String;
@@ -588,7 +597,7 @@ procedure TChat.ProcessBuckets;
         if Bucket.Size - SizeOf(PacketQuery) <> PacketQuery.NameLength then Exit;
         PeerName := '';
         SetLength(PeerName, PacketQuery.NameLength);
-        Move(Bucket.Packet[SizeOf(PacketQuery)], PeerName[1], PacketQuery.NameLength);
+        Move(Bucket.Data[SizeOf(PacketQuery)], PeerName[1], PacketQuery.NameLength);
         AddPeer(PeerName, Bucket.Addr, Bucket.Port);
         _Sock.SendTo(
           @DiscoverPacket[0], Length(DiscoverPacket), 0,
@@ -601,7 +610,7 @@ procedure TChat.ProcessBuckets;
         if PacketQuery.NameLength > MaxNameLength then Exit;
         if Bucket.Size - SizeOf(PacketQuery) <> PacketQuery.NameLength then Exit;
         SetLength(PeerName, PacketQuery.NameLength);
-        Move(Bucket.Packet[SizeOf(PacketQuery)], PeerName[1], PacketQuery.NameLength);
+        Move(Bucket.Data[SizeOf(PacketQuery)], PeerName[1], PacketQuery.NameLength);
         AddPeer(PeerName, Bucket.Addr, Bucket.Port);
       end;
       pd_received:
@@ -620,7 +629,7 @@ procedure TChat.ProcessBuckets;
         PkIndex := PacketMessage.Index;
         Msg := nil;
         SetLength(Msg, Bucket.Size - SizeOf(PacketMessage));
-        Move(Bucket.Packet[SizeOf(PacketMessage)], Msg[0], Length(Msg));
+        Move(Bucket.Data[SizeOf(PacketMessage)], Msg[0], Length(Msg));
         ReceiveMessage(PeerIndex, PacketMessage.Id, PkCount, PkIndex, Msg);
       end;
       pd_cmpl_req:
@@ -635,7 +644,7 @@ procedure TChat.ProcessBuckets;
       end;
     end;
   end;
-  var Bucket: TBucket;
+  var Bucket: TPacket;
 begin
   _QueueLock.Enter;
   try
@@ -656,7 +665,7 @@ procedure TChat.ProcessSendMessages;
   var p, m, c: Int32;
   var t: UInt64;
   var AllSent: Boolean;
-  var PacketMessageCfrm: TPacketMessage;
+  var PacketMessageCfrm: THeaderMessage;
 begin
   t := GetTickCount64;
   for p := 0 to High(_Peers) do
@@ -680,8 +689,7 @@ begin
       end;
       if AllSent then
       begin
-        PacketMessageCfrm.Marker := Marker;
-        PacketMessageCfrm.Desc := UInt8(pd_cmpl_req);
+        InitBasePacket(@PacketMessageCfrm, pd_cmpl_req);
         PacketMessageCfrm.Id := Id;
         _Sock.SendTo(
           @PacketMessageCfrm, SizeOf(PacketMessageCfrm),
@@ -713,7 +721,7 @@ begin
 end;
 
 procedure TChat.Send(const Message: String);
-  type PPacketMessage = ^TPacketChunkMsg;
+  type PPacketMessage = ^THeaderChunkMsg;
   var Msg: PPacketMessage;
   var ChunkCount, ChunkSize, ChunkRem: Int32;
   var SendMessage: TMessageSend;
@@ -723,7 +731,7 @@ begin
   CurId := _MsgId;
   Inc(_MsgId);
   if _MsgId = $ffff then _MsgId := 1;
-  ChunkSize := BufferSizeUDP - SizeOf(TPacketChunkMsg);
+  ChunkSize := BufferSizeUDP - SizeOf(THeaderChunkMsg);
   ChunkCount := Length(Message) div ChunkSize;
   ChunkRem := Length(Message) mod ChunkSize;
   if ChunkRem > 0 then Inc(ChunkCount);
@@ -740,14 +748,13 @@ begin
     Chunks[i].Success := False;
     n := UMin(ChunkRem, ChunkSize);
     ChunkRem -= n;
-    SetLength(Chunks[i].Data, SizeOf(TPacketChunkMsg) + n);
+    SetLength(Chunks[i].Data, SizeOf(THeaderChunkMsg) + n);
     Msg := PPacketMessage(@Chunks[i].Data[0]);
+    InitBasePacket(Msg, pd_message);
     Msg^.Id := CurId;
-    Msg^.Marker := Marker;
-    Msg^.Desc := UInt8(pd_message);
     Msg^.Count := UInt16(ChunkCount);
     Msg^.Index := UInt16(i);
-    Move(Message[m], Chunks[i].Data[SizeOf(TPacketChunkMsg)], n);
+    Move(Message[m], Chunks[i].Data[SizeOf(THeaderChunkMsg)], n);
     m += n;
   end;
   for i := 0 to High(_Peers) do
@@ -814,13 +821,11 @@ end;
 
 procedure TChat.TListener.Execute;
   var Buffer: array[0..BufferSizeUDP - 1] of UInt8;
-  var PacketBase: TPacketBase absolute Buffer;
-  var MarkerCheck: array[0..3] of AnsiChar;
+  var PacketBase: THeaderBase absolute Buffer;
   var AddrFrom: TUSockAddr;
   var SockLen: TUSockLen;
-  var i, r: Int32;
+  var r: Int32;
 begin
-  UClear(MarkerCheck, SizeOf(MarkerCheck));
   while not Terminated do
   begin
     SockLen := SizeOf(AddrFrom);
@@ -828,9 +833,8 @@ begin
     if r < SizeOf(PacketBase) then Continue;
     if (AddrFrom.sin_addr = Chat._MyAddr) and (NtoHs(AddrFrom.sin_port) = Chat._MyPort) then Continue;
     if PacketBase.Marker <> Marker then Continue;
+    if PacketBase.Version <> Version then Continue;
     Chat.AddBucket(AddrFrom.sin_addr, NtoHs(AddrFrom.sin_port), @Buffer, UInt16(r));
-    //Continue;
-    //WriteLn('Receivd: ', UNetNetAddrToStr(AddrFrom.sin_addr), ':', NtoHs(AddrFrom.sin_port));
   end;
 end;
 
