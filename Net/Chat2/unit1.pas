@@ -149,11 +149,11 @@ private
   function GetPortRange(const Index: Int8): UInt16;
   procedure SetPortRange(const Index: Int8; const Value: UInt16);
   procedure InitBasePacket(const Packet: Pointer; const Desc: TPacketDesc = pd_invalid);
-  procedure AddBucket(
+  procedure AddPacket(
     const PeerAddr: TUInAddr;
     const PeerPort: UInt16;
     const Buffer: Pointer;
-    const Size: UInt16
+    const DataSize: UInt16
   );
   procedure PacketConfirmed(
     const PeerIndex: Int32;
@@ -184,7 +184,7 @@ private
   ): Int32;
   procedure RemoveOldPeers;
   function GetPeers: TPeerIdArray;
-  procedure ProcessBuckets;
+  procedure ProcessPackets;
   procedure ProcessSendMessages;
   procedure PeerAdded(const PeerId: TPeerId);
   procedure PeerRemoved(const PeerId: TPeerId);
@@ -349,23 +349,23 @@ begin
   Base^.Desc := UInt8(Desc);
 end;
 
-procedure TChat.AddBucket(
+procedure TChat.AddPacket(
   const PeerAddr: TUInAddr;
   const PeerPort: UInt16;
   const Buffer: Pointer;
-  const Size: UInt16
+  const DataSize: UInt16
 );
-  var Bucket: TPacket;
+  var Packet: TPacket;
 begin
   _QueueLock.Enter;
   try
-    Bucket := _Queue.NewItem;
-    with Bucket do
+    Packet := _Queue.NewItem;
+    with Packet.Data do
     begin
-      Data.Addr := PeerAddr;
-      Data.Port := PeerPort;
-      Data.Size := Size;
-      Move(Buffer^, Data.Data, Size);
+      Addr := PeerAddr;
+      Port := PeerPort;
+      Size := DataSize;
+      Move(Buffer^, Data, DataSize);
     end;
   finally
     _QueueLock.Leave;
@@ -562,24 +562,23 @@ begin
   end;
 end;
 
-procedure TChat.ProcessBuckets;
-  procedure ProcessBucket(const Bucket: TPacketData);
-    var PacketBase: THeaderBase absolute Bucket.Data;
-    var PacketMessage: THeaderChunkMsg absolute Bucket.Data;
-    var PacketReceived: THeaderChunkCfrm absolute Bucket.Data;
-    var PacketQuery: THeaderQuery absolute Bucket.Data;
-    var PacketCfrm: THeaderMessageCfrm absolute Bucket.Data;
+procedure TChat.ProcessPackets;
+  procedure ProcessPacket(const Packet: TPacketData);
+    var PacketBase: THeaderBase absolute Packet.Data;
+    var PacketMessage: THeaderChunkMsg absolute Packet.Data;
+    var PacketReceived: THeaderChunkCfrm absolute Packet.Data;
+    var PacketQuery: THeaderQuery absolute Packet.Data;
+    var PacketCfrm: THeaderMessageCfrm absolute Packet.Data;
     var PkCount, PkIndex: UInt16;
     var Msg: TUInt8Array;
     var PeerName: String;
     var PeerIndex: Int32;
     var SockAddr: TUSockAddr;
-    var i: Int32;
   begin
-    PeerIndex := FindPeerNL(Bucket.Addr, Bucket.Port);
+    PeerIndex := FindPeerNL(Packet.Addr, Packet.Port);
     SockAddr := TUSockAddr.Default;
-    SockAddr.sin_addr := Bucket.Addr;
-    SockAddr.sin_port := HtoNs(Bucket.Port);
+    SockAddr.sin_addr := Packet.Addr;
+    SockAddr.sin_port := HtoNs(Packet.Port);
     case TPacketDesc(PacketBase.Desc) of
       pd_ping:
       begin
@@ -592,13 +591,13 @@ procedure TChat.ProcessBuckets;
       end;
       pd_query:
       begin
-        if Bucket.Size < SizeOf(PacketQuery) then Exit;
+        if Packet.Size < SizeOf(PacketQuery) then Exit;
         if PacketQuery.NameLength > MaxNameLength then Exit;
-        if Bucket.Size - SizeOf(PacketQuery) <> PacketQuery.NameLength then Exit;
+        if Packet.Size - SizeOf(PacketQuery) <> PacketQuery.NameLength then Exit;
         PeerName := '';
         SetLength(PeerName, PacketQuery.NameLength);
-        Move(Bucket.Data[SizeOf(PacketQuery)], PeerName[1], PacketQuery.NameLength);
-        AddPeer(PeerName, Bucket.Addr, Bucket.Port);
+        Move(Packet.Data[SizeOf(PacketQuery)], PeerName[1], PacketQuery.NameLength);
+        AddPeer(PeerName, Packet.Addr, Packet.Port);
         _Sock.SendTo(
           @DiscoverPacket[0], Length(DiscoverPacket), 0,
           @SockAddr, SizeOf(SockAddr)
@@ -606,12 +605,12 @@ procedure TChat.ProcessBuckets;
       end;
       pd_discover:
       begin
-        if Bucket.Size < SizeOf(PacketQuery) then Exit;
+        if Packet.Size < SizeOf(PacketQuery) then Exit;
         if PacketQuery.NameLength > MaxNameLength then Exit;
-        if Bucket.Size - SizeOf(PacketQuery) <> PacketQuery.NameLength then Exit;
+        if Packet.Size - SizeOf(PacketQuery) <> PacketQuery.NameLength then Exit;
         SetLength(PeerName, PacketQuery.NameLength);
-        Move(Bucket.Data[SizeOf(PacketQuery)], PeerName[1], PacketQuery.NameLength);
-        AddPeer(PeerName, Bucket.Addr, Bucket.Port);
+        Move(Packet.Data[SizeOf(PacketQuery)], PeerName[1], PacketQuery.NameLength);
+        AddPeer(PeerName, Packet.Addr, Packet.Port);
       end;
       pd_received:
       begin
@@ -628,8 +627,8 @@ procedure TChat.ProcessBuckets;
         PkCount := PacketMessage.Count;
         PkIndex := PacketMessage.Index;
         Msg := nil;
-        SetLength(Msg, Bucket.Size - SizeOf(PacketMessage));
-        Move(Bucket.Data[SizeOf(PacketMessage)], Msg[0], Length(Msg));
+        SetLength(Msg, Packet.Size - SizeOf(PacketMessage));
+        Move(Packet.Data[SizeOf(PacketMessage)], Msg[0], Length(Msg));
         ReceiveMessage(PeerIndex, PacketMessage.Id, PkCount, PkIndex, Msg);
       end;
       pd_cmpl_req:
@@ -644,15 +643,15 @@ procedure TChat.ProcessBuckets;
       end;
     end;
   end;
-  var Bucket: TPacket;
+  var Packet: TPacket;
 begin
   _QueueLock.Enter;
   try
-    Bucket := _Queue.List;
-    while Assigned(Bucket) do
+    Packet := _Queue.List;
+    while Assigned(Packet) do
     begin
-      ProcessBucket(Bucket.Data);
-      Bucket := Bucket.Next;
+      ProcessPacket(Packet.Data);
+      Packet := Packet.Next;
     end;
     _Queue.Clear;
   finally
@@ -707,7 +706,6 @@ begin
 end;
 
 procedure TChat.PeerRemoved(const PeerId: TPeerId);
-  var i, j, p: Int32;
 begin
   WriteLn('Peer removed: ', PeerId.Name);
   if Assigned(_OnPeerLeft) then _OnPeerLeft(PeerId);
@@ -715,7 +713,7 @@ end;
 
 procedure TChat.Update;
 begin
-  ProcessBuckets;
+  ProcessPackets;
   ProcessSendMessages;
   RemoveOldPeers;
 end;
@@ -834,7 +832,7 @@ begin
     if (AddrFrom.sin_addr = Chat._MyAddr) and (NtoHs(AddrFrom.sin_port) = Chat._MyPort) then Continue;
     if PacketBase.Marker <> Marker then Continue;
     if PacketBase.Version <> Version then Continue;
-    Chat.AddBucket(AddrFrom.sin_addr, NtoHs(AddrFrom.sin_port), @Buffer, UInt16(r));
+    Chat.AddPacket(AddrFrom.sin_addr, NtoHs(AddrFrom.sin_port), @Buffer, UInt16(r));
   end;
 end;
 
@@ -1035,7 +1033,8 @@ procedure TForm1.Button2Click(Sender: TObject);
   var Buffer: String;
   var i, n: Int32;
 begin
-  SetLength(Buffer, 50);
+  Buffer := '';
+  SetLength(Buffer, TChat.BufferSizeUDP * 2);
   n := Ord('Z') - Ord('A') + 1;
   for i := 1 to Length(Buffer) do
   begin
