@@ -7,6 +7,7 @@ uses
   cthreads,
   {$ENDIF}
   Classes,
+  SysUtils,
   CommonUtils,
   CryptoUtils;
 
@@ -14,10 +15,12 @@ procedure Run;
   var TestStr: String = 'Hello World!';
   var Key, Temp: TURSA.TKey;
   var DecryptStr, Export: String;
-  var Cipher: TUCryptoInt;
+  var Cipher: TUCrInt;
   var i, m: Int32;
   var Fails: array[0..1] of Int32;
+  var t0, t1: UInt64;
 begin
+  t0 := GetTickCount64;
   m := 0;
   for m := 0 to 1 do
   begin
@@ -68,6 +71,8 @@ begin
   end;
   WriteLn('PKCS1 Fails = ', Fails[0]);
   WriteLn('OAEP Fails = ', Fails[1]);
+  t1 := GetTickCount64;
+  WriteLn('Time: ', (t1 - t0) div 1000, 's');
   WriteLn('Done.');
   //ReadLn;
 end;
