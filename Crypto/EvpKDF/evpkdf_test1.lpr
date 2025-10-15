@@ -16,7 +16,7 @@ procedure Run;
   var IV: TUInt8Array;
 begin
   WriteLn('Testing EvpKDF SHA256');
-  Key := UEvpKDF_SHA256(
+  Key := UEvpKDF_SHA2_256(
     UStrToBytes('password'), UHexToBytes('0123456789abcdef'),
     SizeOf(TUAES.TKey256), SizeOf(TUAES.TInitVector), 1, IV
   );

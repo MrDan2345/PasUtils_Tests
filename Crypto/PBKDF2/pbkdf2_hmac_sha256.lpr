@@ -34,7 +34,7 @@ begin;
   Password := UStrToBytes(PasswordStr);
   Salt := UHexToBytes(SaltStr);
   WriteLn('Generating hash with ', Iterations, ' Iterations...');
-  Digest := UPBKDF2_HMAC_SHA256(Password, Salt, SizeOf(TUAES.TKey256), Iterations);
+  Digest := UPBKDF2_HMAC_SHA2_256(Password, Salt, SizeOf(TUAES.TKey256), Iterations);
   WriteLn('Password: ', PasswordStr);
   WriteLn('Salt (Hex): ', SaltStr);
   WriteLn('Salt (B64): ', SaltB64);

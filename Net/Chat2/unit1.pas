@@ -116,6 +116,7 @@ private
   type TMessageRecv = record
     var Id: UInt16;
     var Chunks: array of TMessageChunk;
+    var Accepted: Boolean;
     function IsComplete: Boolean;
     procedure AddChunk(const Index: Int32; const Data: TUInt8Array);
     function Assemble: TUInt8Array;
@@ -293,7 +294,7 @@ begin
     _Sock := TUSocket.Invalid;
     Exit;
   end;
-  WriteLn('Listening: ', _MyPort);
+  //WriteLn('Listening: ', _MyPort);
   NameLength := UMin(Length(_Name), 40);
   SetLength(QueryPacket, SizeOf(THeaderQuery) + NameLength);
   Packet := @QueryPacket[0];
@@ -433,6 +434,7 @@ procedure TChat.ReceiveMessage(
       Result := Length(Queues.Recv);
       SetLength(Queues.Recv, Result + 1);
       Queues.Recv[Result].Id := MsgId;
+      Queues.Recv[Result].Accepted := False;
       SetLength(Queues.Recv[Result].Chunks, ChunkCount);
     end;
   end;
@@ -446,12 +448,16 @@ begin
   with _Peers[PeerIndex] do
   begin
     Queues.Recv[i].AddChunk(ChunkIndex, Msg);
-    if Queues.Recv[i].IsComplete then
+    if not Queues.Recv[i].Accepted and Queues.Recv[i].IsComplete then
     begin
+      Queues.Recv[i].Accepted := True;
       if Assigned(_OnMessage) then
       begin
         MsgFull := Queues.Recv[i].Assemble;
         MsgStr := UBytesToString(MsgFull);
+{$if defined(windows)}
+        MsgStr := StringReplace(MsgStr, #$A, #$D#$A, [rfReplaceAll]);
+{$endif}
         _OnMessage(Id, MsgStr);
       end;
     end;
@@ -721,13 +727,13 @@ end;
 
 procedure TChat.PeerAdded(const PeerId: TPeerId);
 begin
-  WriteLn('Peer added: ', PeerId.Name);
+  //WriteLn('Peer added: ', PeerId.Name);
   if Assigned(_OnPeerJoined) then _OnPeerJoined(PeerId);
 end;
 
 procedure TChat.PeerRemoved(const PeerId: TPeerId);
 begin
-  WriteLn('Peer removed: ', PeerId.Name);
+  //WriteLn('Peer removed: ', PeerId.Name);
   if Assigned(_OnPeerLeft) then _OnPeerLeft(PeerId);
 end;
 
@@ -745,18 +751,20 @@ procedure TChat.Send(const Message: String);
   var SendMessage: TMessageSend;
   var CurId: UInt16;
   var i, n, m: Int32;
+  var MsgConv: String;
 begin
+  MsgConv := StringReplace(Message, #$D#$A, #$A, [rfReplaceAll]);
   CurId := _MsgId;
   Inc(_MsgId);
   if _MsgId = $ffff then _MsgId := 1;
   ChunkSize := BufferSizeUDP - SizeOf(THeaderChunkMsg);
-  ChunkCount := Length(Message) div ChunkSize;
-  ChunkRem := Length(Message) mod ChunkSize;
+  ChunkCount := Length(MsgConv) div ChunkSize;
+  ChunkRem := Length(MsgConv) mod ChunkSize;
   if ChunkRem > 0 then Inc(ChunkCount);
   SendMessage.Id := CurId;
   SendMessage.Timestamp := 0;
   SetLength(SendMessage.Chunks, ChunkCount);
-  ChunkRem := Length(Message);
+  ChunkRem := Length(MsgConv);
   SendMessage.Id := CurId;
   SetLength(SendMessage.Chunks, ChunkCount);
   m := 1;
@@ -772,7 +780,7 @@ begin
     Msg^.Id := CurId;
     Msg^.Count := UInt16(ChunkCount);
     Msg^.Index := UInt16(i);
-    Move(Message[m], Chunks[i].Data[SizeOf(THeaderChunkMsg)], n);
+    Move(MsgConv[m], Chunks[i].Data[SizeOf(THeaderChunkMsg)], n);
     m += n;
   end;
   for i := 0 to High(_Peers) do

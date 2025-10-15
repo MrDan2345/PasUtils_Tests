@@ -8,7 +8,7 @@ object Form1: TForm1
   ClientWidth = 699
   OnClose = FormClose
   OnCreate = FormCreate
-  LCLVersion = '3.4.0.0'
+  LCLVersion = '3.6.0.0'
   object Memo1: TMemo
     AnchorSideLeft.Control = Owner
     AnchorSideRight.Control = Owner
@@ -74,6 +74,7 @@ object Form1: TForm1
     Anchors = [akTop, akRight]
     BorderSpacing.Right = 6
     Caption = 'LabelDebugMsgQueue1'
+    Visible = False
   end
   object Button2: TButton
     Left = 136
@@ -82,6 +83,7 @@ object Form1: TForm1
     Width = 96
     Caption = 'Test Message'
     TabOrder = 4
+    Visible = False
     OnClick = Button2Click
   end
   object LabelDebugMsgQueue2: TLabel
@@ -94,6 +96,7 @@ object Form1: TForm1
     Anchors = [akTop, akRight]
     BorderSpacing.Right = 6
     Caption = 'LabelDebugMsgQueue2'
+    Visible = False
   end
   object Button3: TButton
     Left = 237
@@ -102,6 +105,7 @@ object Form1: TForm1
     Width = 96
     Caption = 'Test Notify'
     TabOrder = 5
+    Visible = False
     OnClick = Button3Click
   end
 end
