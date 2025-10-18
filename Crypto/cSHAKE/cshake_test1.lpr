@@ -1,4 +1,4 @@
-program shake_test1;
+program cshake_test1;
 
 {$mode objfpc}{$H+}
 
@@ -10,17 +10,6 @@ uses
   SysUtils,
   CommonUtils,
   CryptoUtils;
-
-function StringToUInt8Array(const s: String): TUInt8Array;
-  var i: Int32;
-begin
-  Result := nil;
-  SetLength(Result, Length(s));
-  for i := 0 to High(Result) do
-  begin
-    Result[i] := Ord(s[i + 1]);
-  end;
-end;
 
 function DigestToHexString(const Digest: array of UInt8): String;
   var i: Int32;
@@ -45,13 +34,13 @@ procedure WriteSuccessOrFail(const a, b: String);
   end;
 
 // Test functions
-procedure TestSHAKE_128;
+procedure TestCSHAKE_128;
   const HashLen = 32;
   procedure Test(const Name: String; const Data: String; const Expected: String);
     var Digest: TUInt8Array;
     var Actual: String;
   begin
-    Digest := USHAKE_128(Data, HashLen);
+    Digest := UcSHAKE_128(Data, HashLen, 'cSHAKE', '128');
     Actual := DigestToHexString(Digest);
     WriteLn(Name);
     WriteSuccessOrFail(Actual, Expected);
@@ -60,37 +49,37 @@ procedure TestSHAKE_128;
     WriteLn;
   end;
 begin
-  WriteLn('SHAKE-128 Test Results:');
+  WriteLn('cSHAKE-128 Test Results:');
   WriteLn('====================');
   Test(
     'Empty string',
     '',
-    '7f9c2ba4e88f827d616045507605853ed73b8093f6efbc88eb1a6eacfa66ef26'
+    '5d9d667b166e43c11d688e425907733f8b32d0575c35c7123f450ce9ffffb4a7'
   );
   Test(
     'String "abc"',
     'abc',
-    '5881092dd818bf5cf8a3ddb793fbcba74097d5c526a6d35f97b83351940f2cc8'
+    '2b321e56a13c2820b4b18c63d191712cc2af511f6390d7efec2d294f74ef9ba7'
   );
   Test(
     'String "Hello, World!"',
     'Hello, World!',
-    '2bf5e6dee6079fad604f573194ba8426bd4d30eb13e8ba2edae70e529b570cbd'
+    '88ffd257d060b4f06880ced2997098a2d27e2276f10321512059fe7a59cd9ec6'
   );
   Test(
     'String "The quick brown fox jumps over the lazy dog"',
     'The quick brown fox jumps over the lazy dog',
-    'f4202e3c5852f9182a0430fd8144f0a74b95e7417ecae17db0f8cfeed0e3e66e'
+    '23859d3f63178af742aff440e13913527500ed532fbb30456443768c2aff54c7'
   );
 end;
 
-procedure TestSHAKE_256;
+procedure TestCSHAKE_256;
   const HashLen = 64;
   procedure Test(const Name: String; const Data: String; const Expected: String);
     var Digest: TUInt8Array;
     var Actual: String;
   begin
-    Digest := USHAKE_256(Data, HashLen);
+    Digest := UcSHAKE_256(Data, HashLen, 'cSHAKE', '256');
     Actual := DigestToHexString(Digest);
     WriteLn(Name);
     WriteSuccessOrFail(Actual, Expected);
@@ -99,44 +88,47 @@ procedure TestSHAKE_256;
     WriteLn;
   end;
 begin
-  WriteLn('SHAKE-256 Test Results:');
+  WriteLn('cSHAKE-256 Test Results:');
   WriteLn('====================');
   Test(
     'Empty string',
     '',
-    '46b9dd2b0ba88d13233b3feb743eeb243fcd52ea62b81b82b50c27646ed5762fd75dc4ddd8c0f200cb05019d67b592f6fc821c49479ab48640292eacb3b7c4be'
+    'a3d69193b5561aed0fbe9ae7ffb7861c6769c949727f6a26d5b0f330f13b12d1779f80bcc2afe8e501ded7b439c31a113a7632b97e6e79422b70e940254dd30d'
   );
   Test(
     'String "abc"',
     'abc',
-    '483366601360a8771c6863080cc4114d8db44530f8f1e1ee4f94ea37e78b5739d5a15bef186a5386c75744c0527e1faa9f8726e462a12a4feb06bd8801e751e4'
+    '891c42f7358386c03581d4321be5660213e75da90a7d6405d1f266a6a6767bc4cfc4457f5b87ea65c2fb3cc7df821aa08e49a388009acfdcb1dba49059654c09'
   );
   Test(
     'String "Hello, World!"',
     'Hello, World!',
-    'b3be97bfd978833a65588ceae8a34cf59e95585af62063e6b89d0789f372424e8b0d1be4f21b40ce5a83a438473271e0661854f02d431db74e6904d6c347d757'
+    '72ba08e8fa7b0a2c1dc0ab4dcb3ef3442813b9343c66fcb66b80a6b25e28fdfd7afe742b75e6eb485a53380aa0ca0160b3ebc9248b694e695ddf38fd57e78f3d'
   );
   Test(
     'String "The quick brown fox jumps over the lazy dog"',
     'The quick brown fox jumps over the lazy dog',
-    '2f671343d9b2e1604dc9dcf0753e5fe15c7c64a0d283cbbf722d411a0e36f6ca1d01d1369a23539cd80f7c054b6e5daf9c962cad5b8ed5bd11998b40d5734442'
+    '9fd5f6a619aadc02ca241a737f9ed97b65fa377f4d11925fbb56d2833e2ce3fdde2aa3fb0ed84217c9b12f019348ebf165b3873c20b3ed659c1d48f2c9ec8189'
   );
 end;
 
-procedure TestSHAKE;
+procedure TestcSHAKE;
   var Hash: TUInt8Array;
   const HashLen = 64;
-  const Data = 'Hello World!';
+  const Data = 'Hello, World!';
+  const FN = 'cSHAKE';
+  const C = '256';
 begin
-  Hash := USHAKE_256(UStrToBytes(Data), HashLen);
+  Hash := UcSHAKE_256(Data, HashLen, FN, C);
   WriteLn(LowerCase(UBytesToHex(Hash)));
   WriteLn(Length(Hash));
-  WriteLn('35259d2903a1303d3115c669e2008510fc79acb50679b727ccb567cc3f786de3553052e47d4dd715cc705ce212a92908f4df9e653fa3653e8a7855724d366137');
+  WriteLn('72ba08e8fa7b0a2c1dc0ab4dcb3ef3442813b9343c66fcb66b80a6b25e28fdfd7afe742b75e6eb485a53380aa0ca0160b3ebc9248b694e695ddf38fd57e78f3d');
 end;
 
 begin
-  TestSHAKE_128;
-  TestSHAKE_256;
+  //TestcSHAKE;
+  TestCSHAKE_128;
+  TestcSHAKE_256;
 {$if defined(windows)}
   ReadLn;
 {$endif}
