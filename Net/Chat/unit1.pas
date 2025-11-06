@@ -75,8 +75,8 @@ begin
   for i := 0 to High(Peers) do
   begin
     if not UStrIsNumber(Peers[i].Message) then Continue;
-    SockAddr.sin_port := UNetHostToNetShort(StrToInt(Peers[i].Message));
-    SockAddr.sin_addr := Peers[i].Addr;
+    SockAddr.Port := UNetHostToNetShort(StrToInt(Peers[i].Message));
+    SockAddr.Addr := Peers[i].Addr;
     Sock.SendTo(@Msg[1], n, 0, @SockAddr, SizeOf(SockAddr));
     //Memo1.Append('Sent: ' + UNetNetAddrToStr(Peers[i].Addr) + ':' + Peers[i].Message);
   end;
@@ -148,7 +148,7 @@ begin
   Port := 61390;
   for i := 0 to 9 do
   begin
-    Addr.sin_port := UNetHostToNetShort(Port);
+    Addr.Port := UNetHostToNetShort(Port);
     r := Sock.Bind(@Addr, SizeOf(Addr));
     if r = 0 then Break;
     Inc(Port);
@@ -233,7 +233,7 @@ begin
     if n <= 0 then Continue;
     Form1.ReceivedMessagesLock.Enter;
     try
-      Msg.Addr := AddrFrom.sin_addr;
+      Msg.Addr := AddrFrom.Addr;
       Msg.Msg := '';
       SetLength(Msg.Msg, n);
       Move(Buffer, Msg.Msg[1], n);

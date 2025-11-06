@@ -34,7 +34,7 @@ begin
   Addr := UNetNetToHost(Addr);
   WriteLn('Local Addr (Host): ', UNetHostAddrToStr(Addr));
   SockAddr := TUSockAddr.Default;
-  SockAddr.sin_port := UNetHostToNetShort(5921);
+  SockAddr.Port := UNetHostToNetShort(5921);
   Sock := TUSocket.Invalid;
   WriteLn('Host Make: ', Sock.MakeTCP());
   WriteLn('Host Bind: ', Sock.Bind(@SockAddr, SizeOf(SockAddr)));
@@ -66,8 +66,8 @@ begin
   Sock := TUSocket.Invalid;
   WriteLn('Client Make: ', Sock.MakeTCP());
   SockAddr := TUSockAddr.Default;
-  SockAddr.sin_addr := TUInAddr.LocalhostN;
-  SockAddr.sin_port := UNetHostToNetShort(5921);
+  SockAddr.Addr := TUInAddr.LocalhostN;
+  SockAddr.Port := UNetHostToNetShort(5921);
   for i := 0 to 10 do
   begin
     r := Sock.Connect(@SockAddr, SizeOf(SockAddr));
