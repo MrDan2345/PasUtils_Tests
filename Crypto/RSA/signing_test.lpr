@@ -19,9 +19,9 @@ begin
   WriteLn('Generating Key...');
   Key := UMakeRSAKey(1024, 24);
   Data := UStrToBytes('Hello World!');
-  Signature := USign_SHA256(Data, Key);
+  Signature := USign_RSA_SHA256(Data, Key);
   WriteLn('Signature: ', LowerCase(UBytesToHex(Signature)));
-  WriteLn('Verify: ', UBoolToStr(UVerify(Data, Signature, Key)));
+  WriteLn('Verify: ', UBoolToStr(UVerify_RSA(Data, Signature, Key)));
 end;
 
 begin
