@@ -206,8 +206,8 @@ begin
     if r <= 0 then
     begin
       WriteLn('Error receiving request from ',
-        UNetNetAddrToStr(Addr.sin_addr), ':',
-        NToHs(Addr.sin_port)
+        UNetNetAddrToStr(Addr.Addr), ':',
+        NToHs(Addr.Port)
       );
       Exit;
     end;
@@ -354,8 +354,8 @@ procedure TServer.Start;
     var r, n: Int32;
   begin
     ListenAddr := TUSockAddr.Default;
-    ListenAddr.sin_addr := TUInAddr.Any;
-    ListenAddr.sin_port := HToNs(80);
+    ListenAddr.Addr := TUInAddr.Any;
+    ListenAddr.Port := HToNs(80);
     n := 0;
     repeat
       r := _SockListen.Bind(@ListenAddr, SizeOf(ListenAddr));

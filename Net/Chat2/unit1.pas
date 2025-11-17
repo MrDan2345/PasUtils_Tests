@@ -284,7 +284,7 @@ begin
   for p := PortMin to PortMax do
   begin
     _MyPort := p;
-    Addr.sin_port := UNetHostToNetShort(p);
+    Addr.Port := UNetHostToNetShort(p);
     r := _Sock.Bind(@Addr, SizeOf(Addr));
     if r = 0 then Break;
   end;
@@ -603,8 +603,8 @@ procedure TChat.ProcessPackets;
   begin
     PeerIndex := FindPeer(Packet.Addr, Packet.Port);
     SockAddr := TUSockAddr.Default;
-    SockAddr.sin_addr := Packet.Addr;
-    SockAddr.sin_port := HtoNs(Packet.Port);
+    SockAddr.Addr := Packet.Addr;
+    SockAddr.Port := HtoNs(Packet.Port);
     case TPacketDesc(PacketBase.Desc) of
       pd_ping:
       begin
@@ -836,8 +836,8 @@ end;
 function TChat.TPeerId.SockAddr: TUSockAddr;
 begin
   Result := TUSockAddr.Default;
-  Result.sin_addr := Addr;
-  Result.sin_port := HtoNs(Port);
+  Result.Addr := Addr;
+  Result.Port := HtoNs(Port);
 end;
 
 function TChat.TPeerId.CmpAddr(const PeerAddr: TUInAddr; const PeerPort: UInt16): Boolean;
@@ -857,10 +857,10 @@ begin
     SockLen := SizeOf(AddrFrom);
     r := Chat.Sock.RecvFrom(@Buffer, BufferSizeUDP, 0, @AddrFrom, @SockLen);
     if r < SizeOf(PacketBase) then Continue;
-    if (AddrFrom.sin_addr = Chat._MyAddr) and (NtoHs(AddrFrom.sin_port) = Chat._MyPort) then Continue;
+    if (AddrFrom.Addr = Chat._MyAddr) and (NtoHs(AddrFrom.Port) = Chat._MyPort) then Continue;
     if PacketBase.Marker <> Marker then Continue;
     if PacketBase.Version <> Version then Continue;
-    Chat.AddPacket(AddrFrom.sin_addr, NtoHs(AddrFrom.sin_port), @Buffer, UInt16(r));
+    Chat.AddPacket(AddrFrom.Addr, NtoHs(AddrFrom.Port), @Buffer, UInt16(r));
   end;
 end;
 
@@ -876,14 +876,14 @@ begin
   PortMin := Chat.PortMin;
   PortMax := Chat.PortMax;
   Addr := TUSockAddr.Default;
-  Addr.sin_addr := UNetLocalAddr;
-  Addr.sin_addr.Addr8[3] := $ff;
+  Addr.Addr := UNetLocalAddr;
+  Addr.Addr.Addr8[3] := $ff;
   Event.Unsignal;
   while not Terminated do
   begin
     for p := PortMin to PortMax do
     begin
-      Addr.sin_port := UNetHostToNetShort(p);
+      Addr.Port := UNetHostToNetShort(p);
       Chat.Sock.SendTo(
         @Chat.QueryPacket[0], Length(Chat.QueryPacket),
         0, @Addr, SizeOf(Addr)
