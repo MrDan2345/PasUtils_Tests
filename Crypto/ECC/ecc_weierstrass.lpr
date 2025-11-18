@@ -1,4 +1,4 @@
-program ecc_test1;
+program ecc_weierstrass;
 
 {$mode objfpc}{$H+}
 

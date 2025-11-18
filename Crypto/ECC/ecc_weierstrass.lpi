@@ -9,7 +9,7 @@
         <MainUnitHasScaledStatement Value="False"/>
       </Flags>
       <SessionStorage Value="InProjectDir"/>
-      <Title Value="ecc_test1"/>
+      <Title Value="ecc_weierstrass"/>
       <UseAppBundle Value="False"/>
       <ResourceType Value="res"/>
     </General>
@@ -25,7 +25,7 @@
     </RunParams>
     <Units>
       <Unit>
-        <Filename Value="ecc_test1.lpr"/>
+        <Filename Value="ecc_weierstrass.lpr"/>
         <IsPartOfProject Value="True"/>
       </Unit>
     </Units>
@@ -33,7 +33,7 @@
   <CompilerOptions>
     <Version Value="11"/>
     <Target>
-      <Filename Value="ecc_test1"/>
+      <Filename Value="ecc_weierstrass"/>
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
