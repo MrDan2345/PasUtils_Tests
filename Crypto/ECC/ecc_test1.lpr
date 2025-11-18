@@ -11,14 +11,14 @@ uses
   CommonUtils;
 
 procedure TestRFC6979;
-  var Curve: TUECC.TCurve;
+  var Curve: TUECC.Weierstrass.TCurve;
   var PrivateKey, MessageHash: TUECC.TBigInt;
-  var Sig: TUECC.TSignature;
+  var Sig: TUECC.Weierstrass.TSignature;
 begin
-  Curve := TUECC.TCurve.Make_SECP256R1;
+  Curve := TUECC.Weierstrass.TCurve.Make_SECP256R1;
   PrivateKey := '#c9afa9d845ba75166b5c215767b1d6934e50c3db36e89b127b8a622b120f6721';
   MessageHash := TUECC.TBigInt.Make(USHA2_256('sample'));
-  Sig := TUECC.Sign(Curve, PrivateKey, MessageHash);
+  Sig := TUECC.Weierstrass.Sign(Curve, PrivateKey, MessageHash);
   WriteLn('r:          ', LowerCase(Sig.r.ToHex));
   WriteLn('Expected r: efd48b2aacb6a8fd1140dd9cd45e81d69d2c877b56aaf991c34d0ea84eaf3716');
   WriteLn('s:          ', LowerCase(Sig.s.ToHex));
@@ -26,24 +26,24 @@ begin
 end;
 
 procedure TestECDSA;
-  var Curve: TUECC.TCurve;
-  var Key: TUECC.TKey;
+  var Curve: TUECC.Weierstrass.TCurve;
+  var Key: TUECC.Weierstrass.TKey;
   var MessageHash: TUInt8Array;
-  var Sig: TUECC.TSignature;
+  var Sig: TUECC.Weierstrass.TSignature;
   var Verify: Boolean;
 begin
   UThreadRandomize;
-  Curve := TUECC.TCurve.Make_SECP256R1;
-  Key := TUECC.MakeKey(Curve);
+  Curve := TUECC.Weierstrass.Curve_SECP256R1;
+  Key := TUECC.Weierstrass.MakeKey(Curve);
   WriteLn('Key d:   ', Key.d.ToHex);
   WriteLn('Key q.x: ', Key.q.x.ToHex);
   WriteLn('Key q.y: ', Key.q.y.ToHex);
   MessageHash := USHA2_256('Hello, World!');
   WriteLn('MshHash: ', UBytesToHex(MessageHash));
-  Sig := TUECC.Sign(Curve, Key.d, TUECC.TBigInt.Make(MessageHash));
+  Sig := TUECC.Weierstrass.Sign(Curve, Key.d, TUECC.TBigInt.Make(MessageHash));
   WriteLn('Sig r: ', Sig.r.ToHex);
   WriteLn('Sig s: ', Sig.s.ToHex);
-  Verify := TUECC.Verify(Curve, Key.q, MessageHash, Sig);
+  Verify := TUECC.Weierstrass.Verify(Curve, Key.q, MessageHash, Sig);
   if Verify then
   begin
     WriteLn('Verify SUCCESS');
@@ -55,7 +55,7 @@ begin
 end;
 
 procedure TestECDH;
-  var KeyA, KeyB: TUECC.TKey;
+  var KeyA, KeyB: TUECC.Weierstrass.TKey;
   var SharedA, SharedB: TUECC.TBigInt;
 begin
   UThreadRandomize;
@@ -83,6 +83,6 @@ end;
 
 begin
   TestECDH;
-  //TestECDSA;
+  TestECDSA;
 end.
 
