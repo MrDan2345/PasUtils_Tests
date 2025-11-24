@@ -25,27 +25,97 @@ begin
   WriteLn;
 end;
 
-procedure Test_BasePoint;
+procedure Test_ScalarMultiply;
   var Scalar: TUECC.TBigInt;
-  var BasePoint: TUECC.Edwards.TPoint;
+  var Result, Expected: TUECC.Edwards.TPoint;
 begin
-  WriteLn('Testing base point...');
+  WriteLn('Testing ScalarMultiply...');
+  // Test 1: 1 * G = G
   Scalar := TUECC.TBigInt.One;
-  BasePoint := TUECC.Edwards.ScalarMultiply(Curve, Scalar, Curve.b);
-  PassedFailed(BasePoint = Curve.b, 'Base Point Test');
+  Result := TUECC.Edwards.ScalarMultiply(Curve, Scalar, Curve.b);
+  Result := Curve.ToAffine(Result);
+  Expected := Curve.ToAffine(Curve.b);
+
+  WriteLn('Test 1: 1 * G = G');
+  WriteLn('Result.x:   ', Result.x.ToHex);
+  WriteLn('Expected.x: ', Expected.x.ToHex);
+  WriteLn('Result.y:   ', Result.y.ToHex);
+  WriteLn('Expected.y: ', Expected.y.ToHex);
+
+  PassedFailed((Result.x = Expected.x) and (Result.y = Expected.y), 'Test 1: 1 * G = G');
+
+  // Test 2: 2 * G
+  Scalar := 2;
+  Result := TUECC.Edwards.ScalarMultiply(Curve, Scalar, Curve.b);
+  Result := Curve.ToAffine(Result);
+
+  // Manually compute 2 * G = G + G
+  Expected := TUECC.Edwards.PointDouble(Curve, Curve.b);
+  Expected := Curve.ToAffine(Expected);
+
+  WriteLn('Test 2: 2 * G');
+  WriteLn('Result.x:   ', Result.x.ToHex);
+  WriteLn('Expected.x: ', Expected.x.ToHex);
+
+  PassedFailed((Result.x = Expected.x) and (Result.y = Expected.y), 'Test 2: 2 * G = G + G');
+
+  // Test 3: n * G = neutral
+  Result := TUECC.Edwards.ScalarMultiply(Curve, Curve.n, Curve.b);
+
+  WriteLn('Test 3: n * G = neutral');
+  PassedFailed(Result.IsNeutral, 'Test 3: n * G = neutral');
 end;
 
-procedure Test_BasePointCompression;
-  var PointCompr: TUECC.Edwards.TPointCompressed;
-  const ExpectedCompr: String = '5866666666666666666666666666666666666666666666666666666666666666';
+procedure Test_PointCompression;
+  var Original, Decompressed, AffineOrig, AffineDecomp: TUECC.Edwards.TPoint;
+  var Compressed: TUECC.Edwards.TPointCompressed;
 begin
-  WriteLn('Testing base point compression...');
-  PointCompr := TUECC.Edwards.PointCompress(Curve, Curve.b);
-  WriteLn('Compressed: ', UBytesToHex(PointCompr));
-  PassedFailed(UBytesToHex(PointCompr) = ExpectedCompr, 'Base Point Compression');
+  WriteLn('=== Testing Point Compression ===');
+
+  // Test with base point
+  //Original := Curve.b;
+  Original := TUECC.Edwards.ScalarMultiply(Curve, Random(1000000), Curve.b);
+
+  WriteLn('Original point (extended coords):');
+  WriteLn('X: ', Original.x.ToHex);
+  WriteLn('Y: ', Original.y.ToHex);
+  WriteLn('Z: ', Original.z.ToHex);
+  WriteLn('T: ', Original.t.ToHex);
+
+  AffineOrig := Curve.ToAffine(Original);
+  WriteLn('Original point (affine):');
+  WriteLn('x: ', AffineOrig.x.ToHex);
+  WriteLn('y: ', AffineOrig.y.ToHex);
+
+  // Compress
+  Compressed := TUECC.Edwards.PointCompress(Curve, Original);
+  WriteLn('Compressed: ', UBytesToHexLC(Compressed));
+
+  // Decompress
+  Decompressed := TUECC.Edwards.PointDecompress(Curve, Compressed);
+
+  if not Decompressed.IsValid then
+  begin
+    WriteLn('❌ Decompression failed - invalid point!');
+    Exit;
+  end;
+
+  WriteLn('Decompressed point (extended coords):');
+  WriteLn('X: ', Decompressed.x.ToHex);
+  WriteLn('Y: ', Decompressed.y.ToHex);
+  WriteLn('Z: ', Decompressed.z.ToHex);
+  WriteLn('T: ', Decompressed.t.ToHex);
+
+  AffineDecomp := Curve.ToAffine(Decompressed);
+  WriteLn('Decompressed point (affine):');
+  WriteLn('x: ', AffineDecomp.x.ToHex);
+  WriteLn('y: ', AffineDecomp.y.ToHex);
+
+  // Compare
+  PassedFailed(AffineOrig = AffineDecomp, 'Compression/Decompression round-trip');
 end;
 
-procedure Test_PointDecompression;
+procedure Test_BasePointDecompression;
   var PointCompr: TUECC.Edwards.TPointCompressed;
   var PointDecompr: TUECC.Edwards.TPoint;
   var a, b: TUECC.Edwards.TPoint;
@@ -78,31 +148,36 @@ end;
 
 procedure Test_RFC8032;
   var Key: TUECC.Edwards.TKey;
-  var d, q: TUECC.TBigInt;
+  var KeyPrivate: TUInt8Array;
   var Sig: TUECC.Edwards.TSignature;
-  var SigStr: String;
-  const ExpectedSignature = '0b107a8e4341516524be5b59f0f55bd26bb4f91c70391ec6ac3ba3901582b85f5501492265e073d874d9e5b81e7f87848a826e80cce2869072ac60c3004356e5';
+  var SigR, SigS: String;
+  const ExpectedR = 'e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e06522490155';
+  const ExpectedS = '5fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b';
+  const ExpectedPublic = 'd75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a';
 begin
-  d := '$607fae1c03ac3b701969327b69c54944c42cec92f44a84ba605afdef9db1619d';
-  UInit(Key.d, d, SizeOf(Key.d));
-  q := '$1a5107f7681a02af2523a6daf372e10e3a0764c9d3fe4bd5b70ab18201985ad7';
-  UInit(Key.q, q, SizeOf(Key.q));
+  KeyPrivate := UHexToBytes('9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60');
+  Key := TUECC.Edwards.MakeKey(Curve, KeyPrivate);
   Sig := TUECC.Edwards.Sign_Ed25519(Curve, Key, nil);
-  SigStr := Sig.ToHex;
-  WriteLn('Private:  ', d.ToHexLC);
-  WriteLn('Public:   ', q.ToHexLC);
-  WriteLn('Expected: ', ExpectedSignature);
-  WriteLn('Actual:   ', SigStr);
-  PassedFailed(ExpectedSignature = SigStr, 'RFC8032');
+  SigR := UBytesToHexLC(Sig.r);
+  SigS := UBytesToHexLC(Sig.s.ToBytes);
+  WriteLn('Private:  ', UBytesToHexLC(Key.d));
+  WriteLn('ExpectedPublic: ', ExpectedPublic);
+  WriteLn('ActualPublic:   ', UBytesToHexLC(Key.q));
+  WriteLn('ExpectedR: ', ExpectedR);
+  WriteLn('ActualR:   ', SigR);
+  WriteLn('ExpectedS: ', ExpectedS);
+  WriteLn('ActualS:   ', SigS);
+  PassedFailed((ExpectedR = SigR) and (ExpectedS = SigS), 'RFC8032');
 end;
 
 begin
+  Randomize;
   Curve := TUECC.Edwards.Curve_Ed25519;
-  //Test_BasePoint;
-  //Test_BasePointCompression;
-  //Test_PointDecompression;
-  //Test_SigningVerification;
+  Test_BasePointDecompression;
+  Test_ScalarMultiply;
+  Test_PointCompression;
   Test_RFC8032;
+  Test_SigningVerification;
 {$if defined(windows)}
   ReadLn;
 {$endif}
