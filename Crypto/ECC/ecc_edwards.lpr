@@ -141,9 +141,45 @@ begin
   Message := 'Hello, Ed25519!';
   Signature := TUECC.Edwards.Sign_Ed25519(Curve, Key, Message);
   WriteLn('Signature R: ', UBytesToHexLC(Signature.r));
-  WriteLn('Signature S: ', Signature.s.ToHexLC);
+  WriteLn('Signature S: ', UBytesToHexLC(Signature.s.ToBytes));
   Valid := TUECC.Edwards.Verify_Ed25519(Curve, Key.q, Message, Signature);
   PassedFailed(Valid, 'Signing and Verification');
+end;
+
+procedure Test_SigningVerificationBLAKE3;
+  var Key: TUECC.Edwards.TKey;
+  var Message: TUInt8Array;
+  var Signature: TUECC.Edwards.TSignature;
+  var Valid: Boolean;
+begin
+  WriteLn('Testing Signing and Verification BLAKE3...');
+  key := TUECC.Edwards.MakeKey_BLAKE3(Curve);
+  WriteLn('Private key: ', UBytesToHexLC(Key.d));
+  WriteLn('Public key:  ', UBytesToHexLC(Key.q));
+  Message := 'Hello, Ed25519!';
+  Signature := TUECC.Edwards.Sign_Ed25519_BLAKE3(Curve, Key, Message);
+  WriteLn('Signature R: ', UBytesToHexLC(Signature.r));
+  WriteLn('Signature S: ', UBytesToHexLC(Signature.s.ToBytes));
+  Valid := TUECC.Edwards.Verify_Ed25519_BLAKE3(Curve, Key.q, Message, Signature);
+  PassedFailed(Valid, 'Signing and Verification BLAKE3');
+end;
+
+procedure Test_SigningVerificationSHAKE;
+  var Key: TUECC.Edwards.TKey;
+  var Message: TUInt8Array;
+  var Signature: TUECC.Edwards.TSignature;
+  var Valid: Boolean;
+begin
+  WriteLn('Testing Signing and Verification SHAKE...');
+  key := TUECC.Edwards.MakeKey_BLAKE3(Curve);
+  WriteLn('Private key: ', UBytesToHexLC(Key.d));
+  WriteLn('Public key:  ', UBytesToHexLC(Key.q));
+  Message := 'Hello, Ed25519!';
+  Signature := TUECC.Edwards.Sign_Ed25519_BLAKE3(Curve, Key, Message);
+  WriteLn('Signature R: ', UBytesToHexLC(Signature.r));
+  WriteLn('Signature S: ', UBytesToHexLC(Signature.s.ToBytes));
+  Valid := TUECC.Edwards.Verify_Ed25519_BLAKE3(Curve, Key.q, Message, Signature);
+  PassedFailed(Valid, 'Signing and Verification SHAKE');
 end;
 
 procedure Test_RFC8032;
@@ -294,6 +330,8 @@ begin
   Test_PointCompression;
   Test_RFC8032;
   Test_SigningVerification;
+  Test_SigningVerificationBLAKE3;
+  Test_SigningVerificationSHAKE;
 {$if defined(windows)}
   ReadLn;
 {$endif}
