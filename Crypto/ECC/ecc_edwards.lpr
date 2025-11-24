@@ -141,7 +141,7 @@ begin
   Message := 'Hello, Ed25519!';
   Signature := TUECC.Edwards.Sign_Ed25519(Curve, Key, Message);
   WriteLn('Signature R: ', UBytesToHexLC(Signature.r));
-  WriteLn('Signature S: ', UBytesToHexLC(Signature.s.ToBytes));
+  WriteLn('Signature S: ', UBytesToHexLC(Signature.s));
   Valid := TUECC.Edwards.Verify_Ed25519(Curve, Key.q, Message, Signature);
   PassedFailed(Valid, 'Signing and Verification');
 end;
@@ -159,7 +159,7 @@ begin
   Message := 'Hello, Ed25519!';
   Signature := TUECC.Edwards.Sign_Ed25519_BLAKE3(Curve, Key, Message);
   WriteLn('Signature R: ', UBytesToHexLC(Signature.r));
-  WriteLn('Signature S: ', UBytesToHexLC(Signature.s.ToBytes));
+  WriteLn('Signature S: ', UBytesToHexLC(Signature.s));
   Valid := TUECC.Edwards.Verify_Ed25519_BLAKE3(Curve, Key.q, Message, Signature);
   PassedFailed(Valid, 'Signing and Verification BLAKE3');
 end;
@@ -177,7 +177,7 @@ begin
   Message := 'Hello, Ed25519!';
   Signature := TUECC.Edwards.Sign_Ed25519_BLAKE3(Curve, Key, Message);
   WriteLn('Signature R: ', UBytesToHexLC(Signature.r));
-  WriteLn('Signature S: ', UBytesToHexLC(Signature.s.ToBytes));
+  WriteLn('Signature S: ', UBytesToHexLC(Signature.s));
   Valid := TUECC.Edwards.Verify_Ed25519_BLAKE3(Curve, Key.q, Message, Signature);
   PassedFailed(Valid, 'Signing and Verification SHAKE');
 end;
@@ -198,7 +198,7 @@ procedure Test_RFC8032;
     Key := TUECC.Edwards.MakeKey(Curve, Private);
     Sig := TUECC.Edwards.Sign_Ed25519(Curve, Key, Message);
     SigR := UBytesToHexLC(Sig.r);
-    SigS := UBytesToHexLC(Sig.s.ToBytes);
+    SigS := UBytesToHexLC(Sig.s);
     WriteLn('Private:  ', UBytesToHexLC(Key.d));
     WriteLn('ExpectedPublic: ', UBytesToHexLC(ExpectedPublic));
     WriteLn('ActualPublic:   ', UBytesToHexLC(Key.q));
@@ -226,7 +226,7 @@ begin
     UHexToBytes('4ccd089b28ff96da9db6c346ec114e0f5b8a319f35aba624da8cf6ed4fb8a6fb'), // Private
     UHexToBytes('3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c'), // Expected Public
     UHexToBytes('92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da'), // Expected R
-    UHexToBytes('085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c'), // Expected S
+    UHexToBytes('085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00'), // Expected S
     UHexToBytes('72'),
     'Vector 2'
   );
