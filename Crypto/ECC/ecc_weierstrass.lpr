@@ -10,6 +10,19 @@ uses
   CryptoUtils,
   CommonUtils;
 
+procedure PassedFailed(const Cond: Boolean; const Name: String);
+begin
+  if Cond then
+  begin
+    WriteLn('✅ ', Name, ' PASSED!')
+  end
+  else
+  begin
+    WriteLn('❌ ', Name, ' FAILED!');
+  end;
+  WriteLn;
+end;
+
 procedure TestECDSA;
   var Curve: TUECC.Weierstrass.TCurve;
   var Key: TUECC.Weierstrass.TKey;
@@ -30,14 +43,7 @@ begin
   WriteLn('Sig r: ', Sig.r.ToHexLC);
   WriteLn('Sig s: ', Sig.s.ToHexLC);
   Verify := TUECC.Weierstrass.Verify(Curve, Key.q, MessageHash, Sig);
-  if Verify then
-  begin
-    WriteLn('✅ ECDSA PASSED!');
-  end
-  else
-  begin
-    WriteLn('❌ ECDSA FAILED!');
-  end;
+  PassedFailed(Verify, 'ECDSA');
 end;
 
 procedure TestECDH;
@@ -58,14 +64,7 @@ begin
   WriteLn('Shared A: ', SharedA.ToHexLC);
   SharedB := USharedKey_ECDH(KeyA.q, KeyB.d);
   WriteLn('Shared B: ', SharedB.ToHexLC);
-  if SharedA = SharedB then
-  begin
-    WriteLn('✅ ECDH PASSED!');
-  end
-  else
-  begin
-    WriteLn('❌ ECDH FAILED!');
-  end;
+  PassedFailed(SharedA = SharedB, 'ECDH');
 end;
 
 procedure TestKeyGeneration;
@@ -82,19 +81,15 @@ begin
   WriteLn('Private:  ', Key.d.ToHexLC);
   WriteLn('Public X: ', Key.q.x.ToHexLC);
   WriteLn('Public Y: ', Key.q.y.ToHexLC);
-  if (Expected.x = Key.q.x) and (Expected.y = Key.q.y) then
-  begin
-    WriteLn('✅ Key Generation PASSED!');
-  end
-  else
-  begin
-    WriteLn('❌ Key Generation FAILED!');
-  end;
+  PassedFailed((Expected.x = Key.q.x) and (Expected.y = Key.q.y), 'Key Generation');
 end;
 
 begin
   TestKeyGeneration;
   TestECDH;
   TestECDSA;
+{$if defined(windows)}
+  ReadLn;
+{$endif}
 end.
 

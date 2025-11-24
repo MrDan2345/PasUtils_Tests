@@ -10,31 +10,17 @@ uses
   CryptoUtils,
   CommonUtils;
 
-function SwapHex(const Hex: String): String;
-  var i, j: Int32;
+procedure PassedFailed(const Cond: Boolean; const Name: String);
 begin
-  SetLength(Result, Length(Hex));
-  for i := 0 to Length(Hex) div 2 - 1 do
+  if Cond then
   begin
-    j := i * 2;
-    Result[j + 1] := Hex[Length(Hex) - j - 1];
-    Result[j + 2] := Hex[Length(Hex) - j];
-  end;
-end;
-
-procedure HexSwap;
-  var Nums: array of String = (
-    '77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a',
-    '5dab087e624a8a4b79e17f8b83800ee66f3bb1292618b6fd1c2f8b27ff88e0eb',
-    '4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742'
-  );
-  var i: Int32;
-begin
-  for i := 0 to High(Nums) do
+    WriteLn('✅ ', Name, ' PASSED!')
+  end
+  else
   begin
-    //WriteLn(Nums[i]);
-    WriteLn(SwapHex(Nums[i]));
+    WriteLn('❌ ', Name, ' FAILED!');
   end;
+  WriteLn;
 end;
 
 procedure TestCurve25519(
@@ -49,14 +35,7 @@ begin
   Output := TUECC.Montgomery.X25519(Curve, Input, BasePoint);
   WriteLn('Output:   ', LowerCase(Output.ToHex));
   WriteLn('Expected: ', LowerCase(Expected.ToHex));
-  if Output = Expected then
-  begin
-    WriteLn('✅ Test PASSED!');
-  end
-  else
-  begin
-    WriteLn('❌ Test FAILED!');
-  end;
+  PassedFailed(Output = Expected, 'Test' + ' ' + TestName);
 end;
 
 procedure TestCurve25519_RFC7748;
@@ -95,27 +74,13 @@ begin
     begin
       WriteLn('After 1:  ', LowerCase(k.ToHex));
       WriteLn('Expected: ', LowerCase(Expected1.ToHex));
-      if k = Expected1 then
-      begin
-        WriteLn('✅ Iterated test 1 PASSED!')
-      end
-      else
-      begin
-        WriteLn('❌ Iterated test 1 FAILED!');
-      end;
+      PassedFailed(k = Expected1, 'Iterated test 1');
     end
     else if i = 1000 then
     begin
       WriteLn('After 1000: ', LowerCase(k.ToHex));
       WriteLn('Expected:   ', LowerCase(Expected1000.ToHex));
-      if k = Expected1000 then
-      begin
-        WriteLn('✅ Iterated test 1000 PASSED!')
-      end
-      else
-      begin
-        WriteLn('❌ Iterated test 1000 FAILED!');
-      end;
+      PassedFailed(k = Expected1000, 'Iterated test 1');
     end;
   end;
 end;
@@ -141,14 +106,7 @@ begin
   WriteLn('SharedA:   ', SharedA.ToHexLC);
   WriteLn('SharedB:   ', SharedB.ToHexLC);
   WriteLn('Expected:  ', ExpectedShared.ToHexLC);
-  if (SharedA = SharedB) and (SharedA = ExpectedShared) then
-  begin
-    WriteLn('✅ ECDH PASSED!')
-  end
-  else
-  begin
-    WriteLn('❌ ECDH FAILED!');
-  end;
+  PassedFailed((SharedA = SharedB) and (SharedA = ExpectedShared), 'ECDH');
 end;
 
 begin
