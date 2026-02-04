@@ -97,21 +97,32 @@ procedure Run;
     end;
     }
   end;
+  procedure RandedLoop;
+    var c: AnsiChar;
+  begin
+    WriteLn('Ranged Loop:');
+    for c in List do
+    begin
+      Write(c, ' ');
+    end;
+    WriteLn;
+  end;
   var i, j: Int32;
 begin
-  //List.Slack := 0;
+  List.Slack := 0;
+  RandedLoop;
   WriteLn('Fast Unordered List Test');
   LogLine;
   Items := nil;
   Randomize;
-  for i := 0 to 5 do
+  for i := 0 to 25 do
   begin
     Item.Ch := AnsiChar(Ord('A') + i);
     Item.Id := List.Add(Item.Ch);
     specialize UArrAppend<TItem>(Items, Item);
   end;
   LogList;
-  for i := 0 to 9 do
+  for i := 0 to 30 do
   begin
     if (Length(Items) > 2) and (Random(2) = 1) then
     begin
@@ -137,9 +148,15 @@ begin
     if List.Id[i] <> List.Id[j] then Continue;
     WriteLn('Error!');
   end;
+  for i := 0 to High(Items) do
+  begin
+    if Items[i].Ch = List[Items[i].Id] then Continue;
+    WriteLn('Error!');
+  end;
   LogList;
   LogArray;
   LogListIndexed;
+  RandedLoop;
 end;
 
 begin
