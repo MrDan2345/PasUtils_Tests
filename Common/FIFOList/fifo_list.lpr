@@ -6,7 +6,7 @@ uses
   CommonUtils;
 
 procedure Test1;
-  var List: specialize TUFIFOList<Int32>;
+  var List: specialize TUQueue<Int32>;
   var i: Int32;
 begin
   List.Cached := True;
