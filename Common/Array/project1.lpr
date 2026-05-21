@@ -14,11 +14,12 @@ procedure Run;
   procedure PrintArr;
     var i: Int32;
   begin
-    for i := 0 to Arr.LastIndex do
+    for i := 0 to Arr.LastIndex - 1 do
     begin
-      Write(Arr.Data[i]);
-      if i < Arr.LastIndex then Write(', ');
+      Write(Arr.Data[i], ', ');
     end;
+    i := Arr.LastIndex;
+    if i > -1 then Write(Arr.Data[i]);
     WriteLn;
   end;
   var i: Int32;
