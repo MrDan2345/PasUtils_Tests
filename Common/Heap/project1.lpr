@@ -76,11 +76,27 @@ begin
   WriteLn;
 end;
 
+procedure MaxHeapTest;
+  var Heap: specialize TUHeap<Int32>;
+begin
+  WriteLn('Max Heap Test');
+  Heap.Push([42, -7, 100, 0, 13, -99, 1, 50, 25, -1]);
+  Heap.MaxHeap := True;
+  Write('  Order: ', Heap.Pop);
+  while not Heap.IsEmpty do
+  begin
+    Write(', ', Heap.Pop);
+  end;
+  WriteLn;
+  WriteLn;
+end;
+
 procedure Run;
 begin
   BasicTest;
   HeapSortTest;
   DuplicatesTest;
+  MaxHeapTest;
 end;
 
 begin
