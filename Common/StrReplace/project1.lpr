@@ -34,6 +34,7 @@ begin
   TestReplace('', 'test', 'best', '');
   TestReplace('Remove the space', ' ', '', 'Removethespace');
   TestReplace('Short', 'Very Long Pattern', 'X', 'Short');
+  TestReplace('ShortString', 'ShortStringButLongerThanOriginal', 'X', 'ShortString');
   TestReplace('Hello', '', 'World', 'Hello');
   TestReplace('apple', 'a', 'aa', 'aapple');
   TestReplace('ABC', 'BC', 'CB', 'ACB');
