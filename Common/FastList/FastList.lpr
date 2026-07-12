@@ -113,8 +113,15 @@ begin
   RandedLoop;
   WriteLn('Fast Unordered List Test');
   LogLine;
-  Items := nil;
   Randomize;
+  // full depletion test
+  for i := 0 to 9 do
+  begin
+    Item.Ch := AnsiChar(Ord('A') + i);
+    Item.Id := List.Add(Item.Ch);
+  end;
+  while not List.IsEmpty do List.Delete(0);
+  Items := nil;
   for i := 0 to 25 do
   begin
     Item.Ch := AnsiChar(Ord('A') + i);

@@ -45,7 +45,7 @@ begin
   Arr.Insert(-1, -3);
   PrintArr;
   WriteLn('Sorted:');
-  Arr.Sort;
+  USort(Arr);
   PrintArr;
   WriteLn('Reversed:');
   Arr.Reverse;
@@ -53,7 +53,7 @@ begin
   i := Random(10);
   WriteLn('Find ', i, ' = ', Arr.Find(i));
   i := -((Random(Arr.Count) div 2) + 1);
-  WriteLn('Negative Index [', i, '] = ', Arr[i]);
+  WriteLn('Negative Index [', i, '] = ', Arr[i]^);
   Write('Enumerator loop: ');
   for i in Arr do Write(i, ' ');
   WriteLn;
