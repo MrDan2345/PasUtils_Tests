@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CONFIG>
   <ProjectOptions>
-    <Version Value="12"/>
+    <Version Value="13"/>
     <PathDelim Value="\"/>
     <General>
       <Flags>
@@ -24,12 +24,6 @@
     <RunParams>
       <FormatVersion Value="2"/>
     </RunParams>
-    <Units>
-      <Unit>
-        <Filename Value="kyber_test1.lpr"/>
-        <IsPartOfProject Value="True"/>
-      </Unit>
-    </Units>
   </ProjectOptions>
   <CompilerOptions>
     <Version Value="11"/>
