@@ -24,6 +24,12 @@
     <RunParams>
       <FormatVersion Value="2"/>
     </RunParams>
+    <Units>
+      <Unit>
+        <Filename Value="kyber_test1.lpr"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+    </Units>
   </ProjectOptions>
   <CompilerOptions>
     <Version Value="11"/>

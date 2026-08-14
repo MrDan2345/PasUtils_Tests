@@ -18,7 +18,7 @@ var
   AllMatch: Boolean;
 begin
   WriteLn('Testing NTT/InvNTT...');
-  for i := 0 to TUKyber768.N - 1 do
+  for i := 0 to TUKyberFlavor768.N - 1 do
   begin
     Original[i] := i mod 17;
   end;
@@ -51,7 +51,7 @@ begin
   WriteLn;
 
   AllMatch := True;
-  for i := 0 to TUKyber768.N - 1 do
+  for i := 0 to TUKyberFlavor768.N - 1 do
   begin
     if Recovered[i] = Original[i] then Continue;
     if AllMatch then WriteLn('Mismatches found:');
@@ -95,10 +95,10 @@ begin
 
   recovered := TUKyber768.PolyDecompress(compressed);
 
-  MaxError := TUKyber768.Q div (2 ** (4+1));
+  MaxError := TUKyberFlavor768.Q div (2 ** (4+1));
   WriteLn('MaxError = ', MaxError);
   Result := True;
-  for i := 0 to TUKyber768.N - 1 do
+  for i := 0 to TUKyberFlavor768.N - 1 do
   begin
     d := TUKyber768.DistModQ(recovered[i], original[i]);
     //d := Abs(recovered[i] - original[i]) mod TUKyber768.Q;
@@ -137,11 +137,11 @@ begin
 
   recovered := TUKyber768.VecDecompress(compressed);
 
-  MaxError := TUKyber768.Q div (2 ** (4+1));
+  MaxError := TUKyberFlavor768.Q div (2 ** (4+1));
   WriteLn('MaxError = ', MaxError);
   Result := True;
-  for i := 0 to TUKyber768.K - 1 do
-  for j := 0 to TUKyber768.N - 1 do
+  for i := 0 to TUKyberFlavor768.K - 1 do
+  for j := 0 to TUKyberFlavor768.N - 1 do
   begin
     d := Abs(recovered[i][j] - original[i][j]);
     WriteLn('[', i, ',', j,'] ', original[i][j], ' - ', recovered[i][j], ' = ', d);
@@ -169,10 +169,10 @@ class function TestSerialization: Boolean;
 begin
   WriteLn('Testing compression...');
 
-  for i := 0 to TUKyber768.K - 1 do
-  for j := 0 to TUKyber768.N - 1 do
+  for i := 0 to TUKyberFlavor768.K - 1 do
+  for j := 0 to TUKyberFlavor768.N - 1 do
   begin
-    Original[i][j] := (j * 7 + i) mod TUKyber768.Q;
+    Original[i][j] := (j * 7 + i) mod TUKyberFlavor768.Q;
   end;
 
   Serialized := TUKyber768.VecToBytes(Original);
@@ -181,8 +181,8 @@ begin
   Recovered := TUKyber768.VecFromBytes(Serialized);
 
   Result := True;
-  for i := 0 to TUKyber768.K - 1 do
-  for j := 0 to TUKyber768.N - 1 do
+  for i := 0 to TUKyberFlavor768.K - 1 do
+  for j := 0 to TUKyberFlavor768.N - 1 do
   begin
     if Recovered[i][j] <> Original[i][j] then
     begin
@@ -206,8 +206,8 @@ function TestKeyGeneration: Boolean;
   function CoeffsEqualModQ(a, b: Int32): Boolean;
     var diff: Int32;
   begin
-    diff := (a - b) mod TUKyber768.Q;
-    if diff < 0 then diff += TUKyber768.Q;
+    diff := (a - b) mod TUKyberFlavor768.Q;
+    if diff < 0 then diff += TUKyberFlavor768.Q;
     Result := diff = 0;
   end;
   var KeyPair: TUKyber768.TKeyPair;
@@ -248,9 +248,9 @@ begin
 
   // Verify they match
   Result := True;
-  for i := 0 to TUKyber768.K - 1 do
+  for i := 0 to TUKyberFlavor768.K - 1 do
   begin
-    for j := 0 to TUKyber768.N - 1 do
+    for j := 0 to TUKyberFlavor768.N - 1 do
     begin
       if pk_recovered.t[i][j] <> KeyPair.PublicKey.t[i][j] then
       begin
@@ -335,15 +335,15 @@ function TestMessageEncoding: Boolean;
   var poly: TUKyber768.TPoly;
   var i: Int32;
 begin
-  msg := TUInt8Array.Make(TUKyber768.SYMBYTES);
-  for i := 0 to TUKyber768.SYMBYTES - 1 do
+  msg := TUInt8Array.Make(TUKyberFlavor768.SYMBYTES);
+  for i := 0 to TUKyberFlavor768.SYMBYTES - 1 do
   begin
     msg[i] := Random(256);
   end;
   poly := TUKyber768.PolyFromMsg(msg);
   recovered := TUKyber768.PolyToMsg(poly);
   Result := True;
-  for i := 0 to TUKyber768.SYMBYTES - 1 do
+  for i := 0 to TUKyberFlavor768.SYMBYTES - 1 do
   if msg[i] <> recovered[i] then
   begin
     WriteLn('Mismatch at byte ', i, ': ', msg[i], ' vs ', recovered[i]);
@@ -360,25 +360,24 @@ begin
 end;
 
 function TestPolyMulCorrectness: Boolean;
-var
-  a, b, expected, viaNTT, a_ntt, b_ntt: TUKyber768.TPoly;
-  i: Int32;
+  var a, b, expected, viaNTT, a_ntt, b_ntt: TUKyber768.TPoly;
+  var i: Int32;
 begin
-  for i := 0 to TUKyber768.N - 1 do
+  for i := 0 to TUKyberFlavor768.N - 1 do
   begin
-    a[i] := Random(TUKyber768.Q);
-    b[i] := Random(TUKyber768.Q);
+    a[i] := Random(TUKyberFlavor768.Q);
+    b[i] := Random(TUKyberFlavor768.Q);
   end;
 
-  expected := TUKyber768.PolyMulNaive(a, b);   // trusted O(n^2) reference
+  expected := TUKyber768.PolyMulNaive(a, b);
 
   a_ntt := a; TUKyber768.PolyNTT(a_ntt);
   b_ntt := b; TUKyber768.PolyNTT(b_ntt);
-  viaNTT := TUKyber768.PolyMul(a_ntt, b_ntt);  // pointwise/basemul in NTT domain
+  viaNTT := TUKyber768.PolyMul(a_ntt, b_ntt);
   TUKyber768.PolyInvNTT(viaNTT);
 
   Result := True;
-  for i := 0 to TUKyber768.N - 1 do
+  for i := 0 to TUKyberFlavor768.N - 1 do
     if not TUKyber768.CoeffsEqualModQ(viaNTT[i], expected[i]) then
     begin
       WriteLn('Mismatch at ', i, ': naive=', expected[i], ' ntt=', viaNTT[i]);
@@ -389,34 +388,45 @@ begin
   else WriteLn('✗ PolyMul (NTT) does NOT match PolyMulNaive');
 end;
 
-function TestEncryption: Boolean;
-  var KeyPair: TUKyber768.TKeyPair;
+function TestEncryption512: Boolean;
+  var KeyPair: TUKyber512.TKeyPair;
   var Msg, Coins, Recovered, Ciphertext: TUInt8Array;
   var i: Int32;
 begin
-  WriteLn('Testing encrypt/decrypt...');
+  WriteLn('Testing encrypt/decrypt 512...');
+  KeyPair := TUKyber512.GenerateKeyPair;
 
-  KeyPair := TUKyber768.GenerateKeyPair;
-
-  Msg := TUInt8Array.Make(TUKyber768.SYMBYTES);
-  for i := 0 to TUKyber768.SYMBYTES - 1 do
+  Msg := TUInt8Array.Make(TUKyberFlavor512.SYMBYTES);
+  for i := 0 to TUKyberFlavor512.SYMBYTES - 1 do
   begin
     Msg[i] := Random(256);
   end;
 
-  Coins := TUInt8Array.Make(TUKyber768.SYMBYTES);
-  for i := 0 to TUKyber768.SYMBYTES - 1 do
+  Coins := TUInt8Array.Make(TUKyberFlavor512.SYMBYTES);
+  for i := 0 to TUKyberFlavor512.SYMBYTES - 1 do
   begin
     Coins[i] := Random(256);
   end;
 
-  Ciphertext := TUKyber768.Encrypt(KeyPair.PublicKey, Msg, Coins);
+  Ciphertext := TUKyber512.Encrypt(KeyPair.PublicKey, Msg, Coins);
   WriteLn('Ciphertext size: ', Length(Ciphertext), ' bytes');
 
-  Recovered := TUKyber768.Decrypt(KeyPair.SecretKey, Ciphertext);
+  Recovered := TUKyber512.Decrypt(KeyPair.SecretKey, Ciphertext);
+  Write('Original: ', Msg[0]);
+  for i := 1 to High(Msg) do
+  begin
+    Write(',', Msg[i]);
+  end;
+  WriteLn;
+  Write('Decrypted: ', Recovered[0]);
+  for i := 1 to High(Recovered) do
+  begin
+    Write(',', Recovered[i]);
+  end;
+  WriteLn;
 
   Result := True;
-  for i := 0 to TUKyber768.SYMBYTES - 1 do
+  for i := 0 to TUKyberFlavor512.SYMBYTES - 1 do
   begin
     if Msg[i] <> Recovered[i] then
     begin
@@ -427,11 +437,125 @@ begin
 
   if Result then
   begin
-    WriteLn('✅ Encrypt/Decrypt test PASSED!')
+    WriteLn('✅ Encrypt/Decrypt 512 test PASSED!')
   end
   else
   begin
-    WriteLn('❌ Encrypt/Decrypt test FAILED!');
+    WriteLn('❌ Encrypt/Decrypt 512 test FAILED!');
+  end;
+end;
+
+function TestEncryption768: Boolean;
+  var KeyPair: TUKyber768.TKeyPair;
+  var Msg, Coins, Recovered, Ciphertext: TUInt8Array;
+  var i: Int32;
+begin
+  WriteLn('Testing encrypt/decrypt 768...');
+  KeyPair := TUKyber768.GenerateKeyPair;
+
+  Msg := TUInt8Array.Make(TUKyberFlavor768.SYMBYTES);
+  for i := 0 to TUKyberFlavor768.SYMBYTES - 1 do
+  begin
+    Msg[i] := Random(256);
+  end;
+
+  Coins := TUInt8Array.Make(TUKyberFlavor768.SYMBYTES);
+  for i := 0 to TUKyberFlavor768.SYMBYTES - 1 do
+  begin
+    Coins[i] := Random(256);
+  end;
+
+  Ciphertext := TUKyber768.Encrypt(KeyPair.PublicKey, Msg, Coins);
+  WriteLn('Ciphertext size: ', Length(Ciphertext), ' bytes');
+
+  Recovered := TUKyber768.Decrypt(KeyPair.SecretKey, Ciphertext);
+  Write('Original: ', Msg[0]);
+  for i := 1 to High(Msg) do
+  begin
+    Write(',', Msg[i]);
+  end;
+  WriteLn;
+  Write('Decrypted: ', Recovered[0]);
+  for i := 1 to High(Recovered) do
+  begin
+    Write(',', Recovered[i]);
+  end;
+  WriteLn;
+
+  Result := True;
+  for i := 0 to TUKyberFlavor768.SYMBYTES - 1 do
+  begin
+    if Msg[i] <> Recovered[i] then
+    begin
+      WriteLn('Mismatch at byte ', i, ': sent=', Msg[i], ' recovered=', Recovered[i]);
+      Result := False;
+    end;
+  end;
+
+  if Result then
+  begin
+    WriteLn('✅ Encrypt/Decrypt 768 test PASSED!')
+  end
+  else
+  begin
+    WriteLn('❌ Encrypt/Decrypt 768 test FAILED!');
+  end;
+end;
+
+function TestEncryption1024: Boolean;
+  var KeyPair: TUKyber1024.TKeyPair;
+  var Msg, Coins, Recovered, Ciphertext: TUInt8Array;
+  var i: Int32;
+begin
+  WriteLn('Testing encrypt/decrypt 1024...');
+  KeyPair := TUKyber1024.GenerateKeyPair;
+
+  Msg := TUInt8Array.Make(TUKyberFlavor1024.SYMBYTES);
+  for i := 0 to TUKyberFlavor1024.SYMBYTES - 1 do
+  begin
+    Msg[i] := Random(256);
+  end;
+
+  Coins := TUInt8Array.Make(TUKyberFlavor1024.SYMBYTES);
+  for i := 0 to TUKyberFlavor1024.SYMBYTES - 1 do
+  begin
+    Coins[i] := Random(256);
+  end;
+
+  Ciphertext := TUKyber1024.Encrypt(KeyPair.PublicKey, Msg, Coins);
+  WriteLn('Ciphertext size: ', Length(Ciphertext), ' bytes');
+
+  Recovered := TUKyber1024.Decrypt(KeyPair.SecretKey, Ciphertext);
+  Write('Original: ', Msg[0]);
+  for i := 1 to High(Msg) do
+  begin
+    Write(',', Msg[i]);
+  end;
+  WriteLn;
+  Write('Decrypted: ', Recovered[0]);
+  for i := 1 to High(Recovered) do
+  begin
+    Write(',', Recovered[i]);
+  end;
+  WriteLn;
+
+  Result := True;
+  for i := 0 to TUKyberFlavor1024.SYMBYTES - 1 do
+  begin
+    if Msg[i] <> Recovered[i] then
+    begin
+      WriteLn('Mismatch at byte ', i, ': sent=', Msg[i], ' recovered=', Recovered[i]);
+      Result := False;
+    end;
+  end;
+
+  if Result then
+  begin
+    WriteLn('✅ Encrypt/Decrypt 1024 test PASSED!')
+  end
+  else
+  begin
+    WriteLn('❌ Encrypt/Decrypt 1024 test FAILED!');
   end;
 end;
 
@@ -441,6 +565,7 @@ end;
 
 procedure Run;
 begin
+  Randomize;
   //Test;
   //{
   //TestNTT;
@@ -452,7 +577,9 @@ begin
   //TestKeyGeneration;
   //TestMessageEncoding;
   //TestPolyMulCorrectness;
-  TestEncryption;
+  TestEncryption512;
+  TestEncryption768;
+  TestEncryption1024;
   //}
 end;
 
