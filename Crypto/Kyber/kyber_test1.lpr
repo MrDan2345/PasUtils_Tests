@@ -351,11 +351,11 @@ begin
   end;
   if Result then
   begin
-    WriteLn('✓ Message encoding test PASSED!');
+    WriteLn('✅ Message encoding test PASSED!');
   end
   else
   begin
-    WriteLn('✗ Message encoding test FAILED!');
+    WriteLn('❌ Message encoding test FAILED!');
   end;
 end;
 
@@ -384,8 +384,14 @@ begin
       Result := False;
     end;
 
-  if Result then WriteLn('✓ PolyMul (NTT) matches PolyMulNaive')
-  else WriteLn('✗ PolyMul (NTT) does NOT match PolyMulNaive');
+  if Result then
+  begin
+    WriteLn('✅ PolyMul (NTT) matches PolyMulNaive');
+  end
+  else
+  begin
+    WriteLn('❌ PolyMul (NTT) does NOT match PolyMulNaive');
+  end;
 end;
 
 function TestEncryption512: Boolean;
