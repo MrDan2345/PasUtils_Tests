@@ -10,7 +10,6 @@ uses
   SysUtils,
   CommonUtils,
   NetUtils,
-  WinSock2,
   Sockets;
 
 type TInput = class (TThread)
